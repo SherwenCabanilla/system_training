@@ -30,6 +30,11 @@ class Patient extends Model
         return $this->hasMany(MedicalRecord::class);
     }
 
+    public function vitalReadings(): HasMany
+    {
+        return $this->hasMany(VitalReading::class);
+    }
+
     public function portalNotifications(): HasMany
     {
         return $this->hasMany(PortalNotification::class);
