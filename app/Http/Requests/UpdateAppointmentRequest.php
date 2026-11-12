@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateAppointmentRequest extends FormRequest
 {
@@ -24,9 +25,8 @@ class UpdateAppointmentRequest extends FormRequest
     {
         return [
             'scheduled_at' => ['required', 'date'],
-            'doctor_id' => ['required', 'integer', 'exists:doctors,id'],
-            'reason' => ['nullable', 'string', 'max:1000'],
-            'status' => ['required', 'in:Scheduled,Cancelled'],
+            'doctor_id' => ['nullable', 'integer', 'exists:doctors,id', Rule::requiredIf($this->route('appointment')->doctor_id !== null)],
+            'reason' => ['nullable', 'string', 'max:1000', Rule::requiredIf($this->route('appointment')->doctor_id === null)],
         ];
     }
 }

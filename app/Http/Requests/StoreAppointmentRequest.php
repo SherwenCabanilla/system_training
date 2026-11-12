@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreAppointmentRequest extends FormRequest
 {
@@ -24,9 +25,9 @@ class StoreAppointmentRequest extends FormRequest
     {
         return [
             'scheduled_at' => ['required', 'date', 'after:now'],
-            'doctor_id' => ['required', 'integer', 'exists:doctors,id'],
-            'reason' => ['nullable', 'string', 'max:1000'],
-            'status' => ['required', 'in:Scheduled,Cancelled'],
+            'booking_mode' => ['required', Rule::in(['choose_doctor', 'clinic_assignment'])],
+            'doctor_id' => ['nullable', 'integer', 'exists:doctors,id', Rule::requiredIf($this->input('booking_mode') === 'choose_doctor')],
+            'reason' => ['nullable', 'string', 'max:1000', Rule::requiredIf($this->input('booking_mode') === 'clinic_assignment')],
         ];
     }
 }

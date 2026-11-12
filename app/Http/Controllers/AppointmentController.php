@@ -17,11 +17,11 @@ class AppointmentController extends Controller
     {
         $appointments = $this->patientFor($request)->appointments();
         $upcomingAppointments = (clone $appointments)
-            ->where('status', '!=', 'Completed')
+            ->whereIn('status', ['Scheduled', 'Pending assignment'])
             ->orderBy('scheduled_at')
             ->get();
         $completedAppointments = (clone $appointments)
-            ->where('status', 'Completed')
+            ->whereIn('status', ['Completed', 'Missed', 'Cancelled'])
             ->orderByDesc('scheduled_at')
             ->get();
 
@@ -32,18 +32,23 @@ class AppointmentController extends Controller
 
     public function store(StoreAppointmentRequest $request): JsonResponse
     {
-        $doctor = Doctor::findOrFail($request->integer('doctor_id'));
         $patient = $this->patientFor($request);
+        $isClinicAssignment = $request->string('booking_mode')->toString() === 'clinic_assignment';
+        $doctor = $isClinicAssignment ? null : Doctor::findOrFail($request->integer('doctor_id'));
         $appointment = $patient->appointments()->create([
-            ...$request->safe()->except('doctor_id'),
-            'doctor_id' => $doctor->id,
-            'doctor_name' => $doctor->name,
-            'department' => $doctor->department,
+            'scheduled_at' => $request->date('scheduled_at'),
+            'doctor_id' => $doctor?->id,
+            'doctor_name' => $doctor?->name ?? 'Clinic assignment pending',
+            'department' => $doctor?->department ?? 'Awaiting clinic review',
+            'reason' => $request->string('reason')->toString() ?: null,
+            'status' => $isClinicAssignment ? 'Pending assignment' : 'Scheduled',
         ]);
         $patient->portalNotifications()->create([
-            'type' => 'appointment_created',
-            'title' => 'Appointment request submitted',
-            'body' => "Your {$appointment->department} appointment with {$appointment->doctor_name} is scheduled for {$appointment->scheduled_at->format('M j, Y g:i A')}.",
+            'type' => $isClinicAssignment ? 'appointment_assignment_requested' : 'appointment_created',
+            'title' => $isClinicAssignment ? 'Clinic assignment requested' : 'Appointment request submitted',
+            'body' => $isClinicAssignment
+                ? "Your appointment request for {$appointment->scheduled_at->format('M j, Y g:i A')} was sent to the clinic for assignment."
+                : "Your {$appointment->department} appointment with {$appointment->doctor_name} is scheduled for {$appointment->scheduled_at->format('M j, Y g:i A')}.",
         ]);
 
         return response()->json(['message' => 'Appointment created.', 'appointment' => $appointment], 201);
@@ -53,12 +58,12 @@ class AppointmentController extends Controller
     {
         $patient = $this->patientFor($request);
         abort_unless($appointment->patient_id === $patient->id, 404);
-        $doctor = Doctor::findOrFail($request->integer('doctor_id'));
+        $doctor = $request->filled('doctor_id') ? Doctor::findOrFail($request->integer('doctor_id')) : null;
         $appointment->update([
             ...$request->safe()->except('doctor_id'),
-            'doctor_id' => $doctor->id,
-            'doctor_name' => $doctor->name,
-            'department' => $doctor->department,
+            'doctor_id' => $doctor?->id,
+            'doctor_name' => $doctor?->name ?? $appointment->doctor_name,
+            'department' => $doctor?->department ?? $appointment->department,
         ]);
         $patient->portalNotifications()->create([
             'type' => 'appointment_updated',

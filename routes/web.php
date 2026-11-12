@@ -24,6 +24,14 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::get('staff', StaffDashboardController::class)->middleware(['auth', 'staff'])->name('staff.dashboard');
+Route::middleware(['auth', 'staff'])->group(function () {
+    Route::get('staff', StaffDashboardController::class)->name('staff.dashboard');
+    Route::get('staff/requests', [StaffDashboardController::class, 'requests'])->name('staff.requests');
+    Route::get('staff/upcoming', [StaffDashboardController::class, 'upcoming'])->name('staff.upcoming');
+    Route::get('staff/history', [StaffDashboardController::class, 'history'])->name('staff.history');
+    Route::patch('staff/appointments/{appointment}/status', [StaffDashboardController::class, 'updateAppointmentStatus'])->name('staff.appointments.status');
+    Route::patch('staff/appointments/{appointment}/assignment', [StaffDashboardController::class, 'assignAppointment'])->name('staff.appointments.assignment');
+    Route::put('staff/appointments/{appointment}/vital-reading', [StaffDashboardController::class, 'storeVitalReading'])->name('staff.appointments.vital-reading');
+});
 
 require __DIR__.'/auth.php';

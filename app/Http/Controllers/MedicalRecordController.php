@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
+use App\VitalReadingStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -18,9 +19,9 @@ class MedicalRecordController extends Controller
         $latestMedicalRecord = $medicalRecords->first();
         $recordTypeCounts = $medicalRecords->countBy('record_type')->sortDesc();
         $resultCount = $medicalRecords->whereNotNull('result_summary')->count();
-        $bloodPressureStatus = $this->bloodPressureStatus($vitalReadings->last()?->systolic, $vitalReadings->last()?->diastolic);
-        $heartRateStatus = $this->heartRateStatus($vitalReadings->last()?->heart_rate);
-        $temperatureStatus = $this->temperatureStatus($vitalReadings->last()?->temperature);
+        $bloodPressureStatus = VitalReadingStatus::bloodPressure($vitalReadings->last()?->systolic, $vitalReadings->last()?->diastolic);
+        $heartRateStatus = VitalReadingStatus::heartRate($vitalReadings->last()?->heart_rate);
+        $temperatureStatus = VitalReadingStatus::temperature($vitalReadings->last()?->temperature);
         $healthActivities = $medicalRecords->map(fn ($medicalRecord) => [
             'date' => $medicalRecord->recorded_on,
             'type' => $medicalRecord->record_type,
@@ -32,7 +33,7 @@ class MedicalRecordController extends Controller
         ])->concat($vitalReadings->map(fn ($vitalReading) => [
             'date' => $vitalReading->recorded_on,
             'type' => 'Vital signs check',
-            'title' => 'Heart rate, temperature, and blood pressure',
+            'title' => $vitalReading->appointment?->doctor_name ?? 'Clinical care team',
             'provider' => $vitalReading->appointment?->department ?? 'Clinical visit',
             'summary' => "Heart rate: {$vitalReading->heart_rate} bpm. Temperature: {$vitalReading->temperature} °C. Blood pressure: {$vitalReading->systolic}/{$vitalReading->diastolic} mmHg.",
             'result' => 'Recorded during a completed dummy appointment visit.',
@@ -62,63 +63,5 @@ class MedicalRecordController extends Controller
     private function patientFor(Request $request): Patient
     {
         return $request->user()->patient()->firstOrCreate();
-    }
-
-    /** @return array{label: string, class: string} */
-    private function bloodPressureStatus(?int $systolic, ?int $diastolic): array
-    {
-        if ($systolic === null || $diastolic === null) {
-            return ['label' => 'No reading', 'class' => 'bg-slate-100 text-slate-700'];
-        }
-
-        if ($systolic < 120 && $diastolic < 80) {
-            return ['label' => 'Normal', 'class' => 'bg-emerald-100 text-emerald-800'];
-        }
-
-        if ($systolic < 130 && $diastolic < 80) {
-            return ['label' => 'Needs attention', 'class' => 'bg-amber-100 text-amber-800'];
-        }
-
-        if ($systolic < 140 && $diastolic < 90) {
-            return ['label' => 'High', 'class' => 'bg-orange-100 text-orange-800'];
-        }
-
-        return ['label' => 'Very high', 'class' => 'bg-rose-100 text-rose-800'];
-    }
-
-    /** @return array{label: string, class: string} */
-    private function heartRateStatus(?int $heartRate): array
-    {
-        if ($heartRate === null) {
-            return ['label' => 'No reading', 'class' => 'bg-slate-100 text-slate-700'];
-        }
-
-        if ($heartRate < 60) {
-            return ['label' => 'Low', 'class' => 'bg-amber-100 text-amber-800'];
-        }
-
-        if ($heartRate <= 100) {
-            return ['label' => 'Normal', 'class' => 'bg-emerald-100 text-emerald-800'];
-        }
-
-        return ['label' => 'High', 'class' => 'bg-rose-100 text-rose-800'];
-    }
-
-    /** @return array{label: string, class: string} */
-    private function temperatureStatus(?string $temperature): array
-    {
-        if ($temperature === null) {
-            return ['label' => 'No reading', 'class' => 'bg-slate-100 text-slate-700'];
-        }
-
-        if ((float) $temperature <= 37.3) {
-            return ['label' => 'Normal', 'class' => 'bg-emerald-100 text-emerald-800'];
-        }
-
-        if ((float) $temperature < 38) {
-            return ['label' => 'Warm', 'class' => 'bg-amber-100 text-amber-800'];
-        }
-
-        return ['label' => 'Fever range', 'class' => 'bg-rose-100 text-rose-800'];
     }
 }
