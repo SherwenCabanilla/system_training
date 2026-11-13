@@ -13,7 +13,7 @@
                 <h2 class="font-semibold text-slate-900">{{ $isAssignment ? 'Waiting for a doctor' : 'Appointments' }}</h2>
                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ $appointments->total() }} total</span>
             </div>
-            <div class="space-y-4 p-4 sm:p-6">
+            <div class="space-y-2 p-3 sm:p-4">
                 @forelse ($appointments as $appointment)
                     @if ($isAssignment)
                         @include('staff._assignment-item', ['appointment' => $appointment, 'doctors' => $doctors])

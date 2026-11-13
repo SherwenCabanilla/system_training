@@ -15,7 +15,14 @@
             <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('dashboard') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('dashboard') }}"><span class="text-base">&#8962;</span> Overview</a>
             <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('appointments.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('appointments.index') }}"><span class="text-base">&#128197;</span> Appointments</a>
             <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('medical-records.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('medical-records.index') }}"><span class="text-base">&#9635;</span> Medical records</a>
-            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('notifications.index') }}"><span class="text-base">&#10022;</span> Notifications</a>
+            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('notifications.index') }}"><span class="text-base">&#10022;</span> Notifications
+                @if ($unreadNotificationCount > 0)
+                    <span class="ml-auto inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                        <span aria-hidden="true">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
+                        <span class="sr-only">{{ $unreadNotificationCount }} unread notifications</span>
+                    </span>
+                @endif
+            </a>
         @endif
     </nav>
     <div class="mt-auto rounded-2xl border border-white/10 bg-white/5 p-4"><a href="{{ route('profile.edit') }}" class="block"><p class="text-sm font-semibold">{{ Auth::user()->name }}</p><p class="mt-1 text-xs text-slate-400">{{ $isStaff ? 'Staff account' : 'Manage profile' }} &rarr;</p></a><form class="mt-4" method="POST" action="{{ route('logout') }}">@csrf<button class="w-full rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-400 hover:bg-white/10" type="submit">Log out</button></form></div>
@@ -29,7 +36,14 @@
                 <a aria-current="{{ request()->routeIs($routeName) ? 'page' : 'false' }}" class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs($routeName) ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route($routeName) }}">{{ $label }}</a>
             @endforeach
         @else
-            <a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('dashboard') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('dashboard') }}">Overview</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('appointments.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('appointments.index') }}">Appointments</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('medical-records.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('medical-records.index') }}">Records</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('notifications.index') }}">Alerts</a>
+            <a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('dashboard') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('dashboard') }}">Overview</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('appointments.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('appointments.index') }}">Appointments</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('medical-records.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('medical-records.index') }}">Records</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('notifications.index') }}">Alerts
+                @if ($unreadNotificationCount > 0)
+                    <span class="ml-1 inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                        <span aria-hidden="true">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
+                        <span class="sr-only">{{ $unreadNotificationCount }} unread notifications</span>
+                    </span>
+                @endif
+            </a>
         @endif
     </div>
 </nav>

@@ -25,6 +25,15 @@ class PortalNotificationController extends Controller
         return back();
     }
 
+    public function markAllAsRead(Request $request): RedirectResponse
+    {
+        $this->patientFor($request)->portalNotifications()
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return to_route('notifications.index');
+    }
+
     private function patientFor(Request $request): Patient
     {
         return $request->user()->patient()->firstOrCreate();

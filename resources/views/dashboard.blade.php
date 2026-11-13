@@ -2,7 +2,10 @@
     <div id="appointments-page" data-store-url="{{ route('appointments.store') }}" data-base-url="{{ url('/appointments') }}" class="space-y-6">
         <section class="flex flex-wrap items-end justify-between gap-5">
             <div><p class="text-sm font-semibold uppercase tracking-wider text-teal-700">Patient dashboard</p><h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">Welcome back, {{ Auth::user()->name }}.</h1><p class="mt-2 text-sm text-slate-600">Here is a quick view of your care today.</p></div>
-            <button id="open-appointment-modal" data-open-booking type="button" aria-haspopup="dialog" aria-controls="appointment-modal" class="rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800">Book appointment</button>
+            <button id="open-appointment-modal" data-open-booking type="button" aria-haspopup="dialog" aria-controls="appointment-modal" class="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 sm:self-auto">
+                <span aria-hidden="true" class="text-lg leading-none">+</span>
+                Book appointment
+            </button>
         </section>
 
         <section class="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,.65fr)]">

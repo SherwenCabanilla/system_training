@@ -6,7 +6,7 @@
         </div>
         <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $id === 'overdue' && $appointments->total() ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600' }}">{{ $appointments->total() }} visits</span>
     </div>
-    <div class="space-y-3 p-4 sm:p-6">
+    <div class="space-y-2 p-3 sm:p-4">
         @forelse ($appointments as $appointment)
             @include('staff._appointment-item', ['appointment' => $appointment, 'canRecordMeasurements' => true])
         @empty
