@@ -27,7 +27,7 @@ class AppointmentTest extends TestCase
         $patient = Patient::query()->create(['user_id' => $user->id]);
 
         $patient->appointments()->create([
-            'scheduled_at' => now()->addWeek(),
+            'scheduled_at' => now()->addWeek()->setTime(10, 0),
             'doctor_name' => 'Dr. Ana Reyes',
             'department' => 'Internal Medicine',
             'status' => 'Scheduled',
@@ -53,7 +53,7 @@ class AppointmentTest extends TestCase
 
         $response = $this->actingAs($user)->postJson(route('appointments.store'), [
             'booking_mode' => 'clinic_assignment',
-            'scheduled_at' => now()->addWeek()->toDateTimeString(),
+            'scheduled_at' => now()->addWeek()->setTime(10, 0)->toDateTimeString(),
             'reason' => 'My shoulder has been hurting for three days.',
         ]);
 
@@ -75,7 +75,7 @@ class AppointmentTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->postJson(route('appointments.store'), [
                 'booking_mode' => 'clinic_assignment',
-                'scheduled_at' => now()->addWeek()->toDateTimeString(),
+                'scheduled_at' => now()->addWeek()->setTime(10, 0)->toDateTimeString(),
                 'reason' => '   ',
             ])
             ->assertUnprocessable()
@@ -89,7 +89,7 @@ class AppointmentTest extends TestCase
         $user = User::factory()->create();
         $patient = Patient::query()->create(['user_id' => $user->id]);
         $appointment = $patient->appointments()->create([
-            'scheduled_at' => now()->addWeek(),
+            'scheduled_at' => now()->addWeek()->setTime(10, 0),
             'doctor_name' => 'Clinic assignment pending',
             'department' => 'Awaiting clinic review',
             'reason' => 'Shoulder pain',
@@ -97,7 +97,7 @@ class AppointmentTest extends TestCase
         ]);
 
         $this->actingAs($user)->patchJson(route('appointments.update', $appointment), [
-            'scheduled_at' => now()->addWeeks(2)->toDateTimeString(),
+            'scheduled_at' => now()->addWeeks(2)->setTime(10, 0)->toDateTimeString(),
             'reason' => 'Shoulder pain for three days',
         ])->assertOk()->assertJsonPath('appointment.status', 'Pending assignment');
 
@@ -113,7 +113,7 @@ class AppointmentTest extends TestCase
         $user = User::factory()->create();
         $patient = Patient::query()->create(['user_id' => $user->id]);
         $appointment = $patient->appointments()->create([
-            'scheduled_at' => now()->addWeek(),
+            'scheduled_at' => now()->addWeek()->setTime(10, 0),
             'doctor_name' => 'Clinic assignment pending',
             'department' => 'Awaiting clinic review',
             'reason' => 'Shoulder pain',

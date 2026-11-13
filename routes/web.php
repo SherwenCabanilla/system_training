@@ -15,6 +15,7 @@ Route::get('/', function () {
 Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('appointments/availability', [AppointmentController::class, 'availability'])->name('appointments.availability');
     Route::resource('appointments', AppointmentController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('medical-records', [MedicalRecordController::class, 'index'])->name('medical-records.index');
     Route::get('notifications', [PortalNotificationController::class, 'index'])->name('notifications.index');

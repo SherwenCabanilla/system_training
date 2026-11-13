@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\AppointmentAvailability;
 use App\Http\Requests\AssignStaffAppointmentRequest;
 use App\Http\Requests\StoreStaffVitalReadingRequest;
 use App\Http\Requests\UpdateStaffAppointmentStatusRequest;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class StaffDashboardController extends Controller
@@ -89,28 +91,38 @@ class StaffDashboardController extends Controller
         ]);
     }
 
-    public function assignAppointment(AssignStaffAppointmentRequest $request, Appointment $appointment): RedirectResponse
+    public function assignAppointment(AssignStaffAppointmentRequest $request, Appointment $appointment, AppointmentAvailability $availability): RedirectResponse
     {
-        abort_unless($appointment->status === 'Pending assignment', 422);
+        return DB::transaction(function () use ($request, $appointment, $availability): RedirectResponse {
+            $appointment = Appointment::query()->lockForUpdate()->findOrFail($appointment->id);
+            abort_unless($appointment->status === 'Pending assignment', 422);
 
-        $doctor = Doctor::findOrFail($request->integer('doctor_id'));
-        $appointment->update(['doctor_id' => $doctor->id, 'doctor_name' => $doctor->name, 'department' => $doctor->department, 'status' => 'Scheduled']);
-        $appointment->patient->portalNotifications()->create(['type' => 'appointment_assigned', 'title' => 'Appointment confirmed', 'body' => "Your appointment with {$doctor->name} is confirmed for {$appointment->scheduled_at->format('M j, Y g:i A')}."]);
+            $doctor = $availability->ensureAvailable($request->integer('doctor_id'), $appointment->scheduled_at, $appointment->id);
+            $appointment->update(['doctor_id' => $doctor->id, 'doctor_name' => $doctor->name, 'department' => $doctor->department, 'status' => 'Scheduled']);
+            $appointment->patient->portalNotifications()->create(['type' => 'appointment_assigned', 'title' => 'Appointment confirmed', 'body' => "Your appointment with {$doctor->name} is confirmed for {$appointment->scheduled_at->format('M j, Y g:i A')}."]);
 
-        return to_route('staff.requests')->with('status', 'Doctor assigned and patient notified.');
+            return to_route('staff.requests')->with('status', 'Doctor assigned and patient notified.');
+        }, 5);
     }
 
-    public function updateAppointmentStatus(UpdateStaffAppointmentStatusRequest $request, Appointment $appointment): RedirectResponse
+    public function updateAppointmentStatus(UpdateStaffAppointmentStatusRequest $request, Appointment $appointment, AppointmentAvailability $availability): RedirectResponse
     {
-        $status = $request->string('status')->toString();
-        $appointment->update(['status' => $status]);
-        $appointment->patient->portalNotifications()->create([
-            'type' => 'appointment_status_updated',
-            'title' => 'Appointment status updated',
-            'body' => "Your appointment with {$appointment->doctor_name} on {$appointment->scheduled_at->format('M j, Y g:i A')} is now marked {$status}.",
-        ]);
+        return DB::transaction(function () use ($request, $appointment, $availability): RedirectResponse {
+            $appointment = Appointment::query()->lockForUpdate()->findOrFail($appointment->id);
+            $status = $request->string('status')->toString();
+            if ($status === 'Scheduled') {
+                abort_if($appointment->doctor_id === null, 422, 'Assign a doctor before scheduling this visit.');
+                $availability->ensureAvailable($appointment->doctor_id, $appointment->scheduled_at, $appointment->id);
+            }
+            $appointment->update(['status' => $status]);
+            $appointment->patient->portalNotifications()->create([
+                'type' => 'appointment_status_updated',
+                'title' => 'Appointment status updated',
+                'body' => "Your appointment with {$appointment->doctor_name} on {$appointment->scheduled_at->format('M j, Y g:i A')} is now marked {$status}.",
+            ]);
 
-        return to_route('staff.dashboard')->with('status', "Appointment marked {$status}.");
+            return to_route('staff.dashboard')->with('status', "Appointment marked {$status}.");
+        }, 5);
     }
 
     public function storeVitalReading(StoreStaffVitalReadingRequest $request, Appointment $appointment): RedirectResponse

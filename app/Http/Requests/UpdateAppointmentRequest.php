@@ -24,7 +24,7 @@ class UpdateAppointmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'scheduled_at' => ['required', 'date'],
+            'scheduled_at' => ['required', 'date', 'after:now'],
             'doctor_id' => ['nullable', 'integer', 'exists:doctors,id', Rule::requiredIf($this->route('appointment')->doctor_id !== null)],
             'reason' => ['nullable', 'string', 'max:1000', Rule::requiredIf($this->route('appointment')->doctor_id === null)],
         ];

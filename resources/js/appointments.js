@@ -9,6 +9,64 @@ if (page) {
     const doctorSearchInput = document.querySelector('#doctor-search');
     const scheduledAtInput = document.querySelector('#scheduled_at');
     const dateFeedback = document.querySelector('#date-feedback');
+    const visitDateInput = document.querySelector('#appointment-date');
+    const visitTimeInput = document.querySelector('#appointment-time');
+    let availabilityRequest = 0;
+    let availabilityLoading = false;
+
+    const loadAvailableTimes = async () => {
+        const requestId = ++availabilityRequest;
+        const selected = scheduledAtInput.value;
+        scheduledAtInput.value = '';
+        visitTimeInput.disabled = true;
+        visitTimeInput.replaceChildren(new Option(visitDateInput.value ? 'Loading times...' : 'Choose a date first', ''));
+        const needsDoctor = document.querySelector('input[name="booking_mode"]:checked').value === 'choose_doctor' && !doctorIdInput.value;
+        visitDateInput.disabled = needsDoctor;
+        if (needsDoctor) {
+            availabilityLoading = false;
+            visitTimeInput.replaceChildren(new Option('Choose a doctor first', ''));
+            document.querySelector('#schedule-help').textContent = 'Choose a doctor to see available times.';
+            dateFeedback.classList.add('hidden');
+            return;
+        }
+        document.querySelector('#schedule-help').textContent = doctorIdInput.value
+            ? 'Showing times for your selected doctor.'
+            : 'Your preferred time is subject to staff confirmation.';
+        availabilityLoading = Boolean(visitDateInput.value);
+        if (!visitDateInput.value) return;
+        const params = new URLSearchParams({ date: visitDateInput.value });
+        if (doctorIdInput.value) params.set('doctor_id', doctorIdInput.value);
+        if (appointmentId.value) params.set('appointment_id', appointmentId.value);
+        try {
+            const response = await fetch(`${form.dataset.availabilityUrl}?${params}`, { headers: { Accept: 'application/json' } });
+            const data = await response.json();
+            if (requestId !== availabilityRequest) return;
+            if (!response.ok) throw new Error(data.message || 'Unable to load available times.');
+            visitTimeInput.replaceChildren(new Option(data.slots.length ? 'Choose a time' : 'No available times. Choose another date or doctor.', ''));
+            data.slots.forEach((slot) => visitTimeInput.add(new Option(slot.label, slot.value)));
+            visitTimeInput.disabled = false;
+            if (data.slots.some((slot) => slot.value === selected)) {
+                visitTimeInput.value = selected;
+                scheduledAtInput.value = selected;
+            }
+            dateFeedback.classList.add('hidden');
+        } catch (error) {
+            if (requestId !== availabilityRequest) return;
+            visitTimeInput.replaceChildren(new Option('Unable to load times', ''));
+            dateFeedback.textContent = error.message || 'Unable to load times. Please try again.';
+            dateFeedback.classList.remove('hidden');
+        } finally {
+            if (requestId === availabilityRequest) availabilityLoading = false;
+        }
+    };
+    visitDateInput.addEventListener('click', () => {
+        if (typeof visitDateInput.showPicker === 'function') {
+            visitDateInput.showPicker();
+        }
+    });
+    visitDateInput.addEventListener('change', loadAvailableTimes);
+    visitTimeInput.addEventListener('change', () => { scheduledAtInput.value = visitTimeInput.value; });
+
     const confirmationModal = document.querySelector('#appointment-confirmation-modal');
     const confirmationDoctor = document.querySelector('#confirmation-doctor');
     const confirmationDate = document.querySelector('#confirmation-date');
@@ -18,8 +76,6 @@ if (page) {
     const successMessage = document.querySelector('#appointment-success-message');
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const bookingModeInputs = document.querySelectorAll('input[name="booking_mode"]');
-    const doctorChoice = document.querySelector('#doctor-choice');
-    const clinicAssignment = document.querySelector('#clinic-assignment');
     const appointmentModal = document.querySelector('#appointment-modal');
     const openAppointmentModal = () => {
         appointmentModal.showModal();
@@ -31,15 +87,20 @@ if (page) {
 
     const updateBookingMode = () => {
         const isChoosingDoctor = document.querySelector('input[name="booking_mode"]:checked').value === 'choose_doctor';
-        doctorChoice.classList.toggle('hidden', !isChoosingDoctor);
-        clinicAssignment.classList.toggle('hidden', isChoosingDoctor);
+        doctorSearchInput.placeholder = isChoosingDoctor ? 'Search doctor, specialty, or department' : 'The clinic will assign your doctor';
         doctorSearchInput.required = isChoosingDoctor;
         form.reason.required = !isChoosingDoctor;
+        document.querySelector('#appointment-time-label').textContent = isChoosingDoctor ? 'Available time' : 'Preferred time';
 
         doctorSearchInput.disabled = !isChoosingDoctor;
+        if (!isChoosingDoctor) {
+            doctorSearchInput.value = '';
+            doctorSearchInput.setCustomValidity('');
+        }
         doctorIdInput.value = isChoosingDoctor
             ? providerOptions.find((option) => option.value === doctorSearchInput.value)?.dataset.id ?? ''
             : '';
+        loadAvailableTimes();
     };
 
     bookingModeInputs.forEach((input) => input.addEventListener('change', updateBookingMode));
@@ -124,44 +185,14 @@ if (page) {
 
     const providerOptions = [...document.querySelectorAll('#provider-directory option')];
 
-    const showProviderSearch = () => {
-        document.querySelector('#provider-search-area').classList.remove('hidden');
-        document.querySelector('#selected-provider').classList.add('hidden');
-    };
-
-    const showSelectedProvider = (provider) => {
-        document.querySelector('#selected-provider-name').textContent = provider.value;
-        document.querySelector('#provider-search-area').classList.add('hidden');
-        document.querySelector('#selected-provider').classList.remove('hidden');
-    };
-
     const updateProviderDetails = () => {
         const provider = providerOptions.find((option) => option.value === doctorSearchInput.value);
-        const details = document.querySelector('#doctor-details');
-
         doctorIdInput.value = provider?.dataset.id ?? '';
         doctorSearchInput.setCustomValidity(doctorSearchInput.value && !provider ? 'Please choose a provider from the suggestions.' : '');
-
-        if (!provider) {
-            details.classList.add('hidden');
-            showProviderSearch();
-            return;
-        }
-
-        document.querySelector('#doctor-specialty').textContent = `${provider.dataset.department} - ${provider.dataset.specialty}`;
-        document.querySelector('#doctor-availability').textContent = `Demo availability: ${provider.dataset.availability}`;
-        details.classList.remove('hidden');
-        showSelectedProvider(provider);
+        loadAvailableTimes();
     };
 
-    const hasValidFutureDate = () => {
-        if (!scheduledAtInput.value) return true;
-        const isFutureDate = new Date(scheduledAtInput.value) > new Date();
-        dateFeedback.textContent = isFutureDate ? '' : 'Please choose a future date and time. Past appointment dates are not available.';
-        dateFeedback.classList.toggle('hidden', isFutureDate);
-        scheduledAtInput.classList.toggle('border-rose-500', !isFutureDate);
-        return isFutureDate;
-    };
+    const hasSelectedAvailableTime = () => !availabilityLoading && Boolean(scheduledAtInput.value);
 
     const reset = () => {
         form.reset();
@@ -171,10 +202,8 @@ if (page) {
         appointmentId.value = '';
         doctorSearchInput.setCustomValidity('');
         updateBookingMode();
-        showProviderSearch();
         document.querySelector('#form-title').textContent = 'Book appointment';
         document.querySelector('#form-cancel').classList.add('hidden');
-        document.querySelector('#doctor-details').classList.add('hidden');
         dateFeedback.classList.add('hidden');
     };
 
@@ -187,7 +216,8 @@ if (page) {
         bookingModeInputs.forEach((input) => {
             input.disabled = input.value !== bookingMode;
         });
-        scheduledAtInput.value = appointment.scheduled_at.slice(0, 16);
+        scheduledAtInput.value = new Intl.DateTimeFormat('sv-SE', { timeZone: form.dataset.timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(appointment.scheduled_at)).replace(' ', 'T');
+        visitDateInput.value = scheduledAtInput.value.slice(0, 10);
         const provider = providerOptions.find((option) => option.dataset.id === String(appointment.doctor_id));
         doctorSearchInput.value = provider?.value ?? '';
         form.reason.value = appointment.reason ?? '';
@@ -302,28 +332,11 @@ if (page) {
             closeConfirmationModal();
         }
     });
-    scheduledAtInput.addEventListener('click', () => {
-        if (typeof scheduledAtInput.showPicker === 'function') {
-            scheduledAtInput.showPicker();
-        }
-    });
-    scheduledAtInput.addEventListener('change', () => {
-        hasValidFutureDate();
-    });
-
     doctorSearchInput.addEventListener('input', updateProviderDetails);
     doctorSearchInput.addEventListener('change', updateProviderDetails);
-    document.querySelector('#change-provider').addEventListener('click', () => {
-        doctorSearchInput.value = '';
-        doctorIdInput.value = '';
-        document.querySelector('#doctor-details').classList.add('hidden');
-        showProviderSearch();
-        doctorSearchInput.focus();
-    });
-
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        if (!hasValidFutureDate() || !form.reportValidity()) return;
+        if (!form.reportValidity() || !hasSelectedAvailableTime()) return;
         openConfirmationModal();
     });
 
@@ -338,6 +351,7 @@ if (page) {
                 message.textContent = Object.values(data.errors ?? {}).flat().join(' ') || data.message || 'Unable to save your appointment. Please try again.';
                 message.className = 'mt-3 text-sm font-medium text-rose-700';
                 closeConfirmationModal();
+                loadAvailableTimes();
                 confirmAppointmentButton.disabled = false;
                 confirmAppointmentButton.textContent = id ? 'Save changes' : 'Confirm appointment';
                 return;

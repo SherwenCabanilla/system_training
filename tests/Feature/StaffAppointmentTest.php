@@ -45,7 +45,7 @@ class StaffAppointmentTest extends TestCase
         $staff = User::factory()->create(['is_staff' => true]);
         $patient = Patient::query()->create(['user_id' => User::factory()->create()->id]);
         $appointment = $patient->appointments()->create([
-            'scheduled_at' => now()->addDay(),
+            'scheduled_at' => now()->addDay()->setTime(10, 0),
             'doctor_name' => 'Dr. Ana Reyes',
             'department' => 'Internal Medicine',
             'status' => 'Scheduled',
@@ -70,7 +70,7 @@ class StaffAppointmentTest extends TestCase
         $patientUser = User::factory()->create();
         $patient = Patient::query()->create(['user_id' => $patientUser->id]);
         $appointment = $patient->appointments()->create([
-            'scheduled_at' => now()->addDay(),
+            'scheduled_at' => now()->addDay()->setTime(10, 0),
             'doctor_name' => 'Dr. Ana Reyes',
             'department' => 'Internal Medicine',
             'status' => 'Scheduled',
@@ -123,7 +123,7 @@ class StaffAppointmentTest extends TestCase
         $staff = User::factory()->create(['is_staff' => true]);
         $patient = Patient::query()->create(['user_id' => User::factory()->create()->id]);
         $appointment = $patient->appointments()->create([
-            'scheduled_at' => now()->addDay(),
+            'scheduled_at' => now()->addDay()->setTime(10, 0),
             'doctor_name' => 'Dr. Ana Reyes',
             'department' => 'Internal Medicine',
             'status' => 'Scheduled',
@@ -143,14 +143,14 @@ class StaffAppointmentTest extends TestCase
         $staff = User::factory()->create(['is_staff' => true]);
         $patient = Patient::query()->create(['user_id' => User::factory()->create()->id]);
         $request = $patient->appointments()->create([
-            'scheduled_at' => now()->addWeek(),
+            'scheduled_at' => now()->addWeek()->setTime(10, 0),
             'doctor_name' => 'Clinic assignment pending',
             'department' => 'Awaiting clinic review',
             'reason' => '<script>alert("concern")</script>',
             'status' => 'Pending assignment',
         ]);
         $upcoming = $patient->appointments()->create([
-            'scheduled_at' => now()->addWeek(),
+            'scheduled_at' => now()->addWeek()->setTime(10, 0),
             'doctor_name' => 'Dr. Future Visit',
             'department' => 'General Medicine',
             'status' => 'Scheduled',
