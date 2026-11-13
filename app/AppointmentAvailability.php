@@ -4,6 +4,7 @@ namespace App;
 
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\Patient;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +41,23 @@ class AppointmentAvailability
             ->where('scheduled_at', '>', $start->copy()->subMinutes(self::DURATION_MINUTES))
             ->where('scheduled_at', '<', $start->copy()->addMinutes(self::DURATION_MINUTES))
             ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId));
+    }
+
+    /** Must be called inside the transaction that saves the appointment. */
+    public function ensurePatientAvailable(int $patientId, CarbonInterface $start, ?int $exceptId = null): void
+    {
+        Patient::query()->lockForUpdate()->findOrFail($patientId);
+        $conflict = Appointment::query()
+            ->where('patient_id', $patientId)
+            ->whereIn('status', ['Scheduled', 'Pending assignment'])
+            ->where('scheduled_at', '>', $start->copy()->subMinutes(self::DURATION_MINUTES))
+            ->where('scheduled_at', '<', $start->copy()->addMinutes(self::DURATION_MINUTES))
+            ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId))
+            ->lockForUpdate()->first();
+
+        if ($conflict !== null) {
+            throw ValidationException::withMessages(['scheduled_at' => 'This patient already has a pending or confirmed appointment at an overlapping time. Choose another time, or cancel or reschedule the existing appointment.']);
+        }
     }
 
     /** Must be called inside the transaction that saves the appointment. */

@@ -51,8 +51,18 @@ class AppointmentController extends Controller
         }
         $day = $request->date('date')->startOfDay();
         $doctorId = $request->filled('doctor_id') ? $request->integer('doctor_id') : null;
-        $busy = $doctorId === null ? collect() : Appointment::query()
-            ->where('doctor_id', $doctorId)->where('status', 'Scheduled')
+        $patientId = $request->user()->patient?->id;
+        $busy = Appointment::query()
+            ->where(function (Builder $query) use ($patientId, $doctorId): void {
+                $query->where(function (Builder $query) use ($patientId): void {
+                    $query->where('patient_id', $patientId)->whereIn('status', ['Scheduled', 'Pending assignment']);
+                });
+                if ($doctorId !== null) {
+                    $query->orWhere(function (Builder $query) use ($doctorId): void {
+                        $query->where('doctor_id', $doctorId)->where('status', 'Scheduled');
+                    });
+                }
+            })
             ->where('scheduled_at', '>', $day->copy()->subMinutes(AppointmentAvailability::DURATION_MINUTES))
             ->where('scheduled_at', '<', $day->copy()->addDay()->addMinutes(AppointmentAvailability::DURATION_MINUTES))
             ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId))
@@ -83,6 +93,7 @@ class AppointmentController extends Controller
             $scheduledAt = $request->date('scheduled_at')->setTimezone(config('app.timezone'));
             $availability->ensureWithinClinicHours($scheduledAt);
             $patient = $this->patientFor($request);
+            $availability->ensurePatientAvailable($patient->id, $scheduledAt);
             $isClinicAssignment = $request->string('booking_mode')->toString() === 'clinic_assignment';
             $doctor = $isClinicAssignment ? null : $availability->ensureAvailable($request->integer('doctor_id'), $scheduledAt);
             $appointment = $patient->appointments()->create([
@@ -113,6 +124,7 @@ class AppointmentController extends Controller
             $availability->ensureWithinClinicHours($scheduledAt);
             $patient = $this->patientFor($request);
             abort_unless($appointment->patient_id === $patient->id, 404);
+            $availability->ensurePatientAvailable($patient->id, $scheduledAt, $appointment->id);
             if ($appointment->doctor_id !== null && ! $request->filled('doctor_id')) {
                 throw ValidationException::withMessages(['doctor_id' => 'This visit now has an assigned doctor. Please refresh before editing.']);
             }

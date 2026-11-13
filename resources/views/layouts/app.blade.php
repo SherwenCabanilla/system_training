@@ -25,5 +25,8 @@
                 {{ $slot }}
             </main>
         </div>
+        @if (! Auth::user()->is_staff)
+            @include('layouts.notification-toast')
+        @endif
     </body>
 </html>

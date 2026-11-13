@@ -12,16 +12,14 @@
                 <a aria-current="{{ request()->routeIs($routeName) ? 'page' : 'false' }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs($routeName) ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route($routeName) }}">{{ $label }}</a>
             @endforeach
         @else
-            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('dashboard') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('dashboard') }}"><span class="text-base">&#8962;</span> Overview</a>
-            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('appointments.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('appointments.index') }}"><span class="text-base">&#128197;</span> Appointments</a>
-            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('medical-records.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('medical-records.index') }}"><span class="text-base">&#9635;</span> Medical records</a>
-            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('notifications.index') }}"><span class="text-base">&#10022;</span> Notifications
-                @if ($unreadNotificationCount > 0)
-                    <span class="ml-auto inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
-                        <span aria-hidden="true">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
-                        <span class="sr-only">{{ $unreadNotificationCount }} unread notifications</span>
+            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('dashboard') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('dashboard') }}"><svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8" /></svg> Overview</a>
+            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('appointments.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('appointments.index') }}"><svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2M8 18h2" /></svg> Appointments</a>
+            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('medical-records.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('medical-records.index') }}"><svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></svg> Medical records</a>
+            <a class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}" href="{{ route('notifications.index') }}"><svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> Notifications
+                    <span data-notification-count class="{{ $unreadNotificationCount > 0 ? '' : 'hidden' }} ml-auto inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                        <span data-notification-number aria-hidden="true">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
+                        <span data-notification-label class="sr-only">{{ $unreadNotificationCount > 0 ? $unreadNotificationCount.' unread notifications' : '' }}</span>
                     </span>
-                @endif
             </a>
         @endif
     </nav>
@@ -37,12 +35,10 @@
             @endforeach
         @else
             <a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('dashboard') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('dashboard') }}">Overview</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('appointments.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('appointments.index') }}">Appointments</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('medical-records.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('medical-records.index') }}">Records</a><a class="whitespace-nowrap rounded-md px-3 py-2 {{ request()->routeIs('notifications.*') ? 'bg-teal-500 text-slate-950' : 'text-slate-300' }}" href="{{ route('notifications.index') }}">Alerts
-                @if ($unreadNotificationCount > 0)
-                    <span class="ml-1 inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
-                        <span aria-hidden="true">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
-                        <span class="sr-only">{{ $unreadNotificationCount }} unread notifications</span>
+                    <span data-notification-count class="{{ $unreadNotificationCount > 0 ? '' : 'hidden' }} ml-1 inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                        <span data-notification-number aria-hidden="true">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
+                        <span data-notification-label class="sr-only">{{ $unreadNotificationCount > 0 ? $unreadNotificationCount.' unread notifications' : '' }}</span>
                     </span>
-                @endif
             </a>
         @endif
     </div>

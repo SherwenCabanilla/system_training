@@ -298,6 +298,96 @@ class AppointmentAvailabilityTest extends TestCase
         $this->assertDatabaseCount('appointments', 1);
     }
 
+    public static function patientConflicts(): array
+    {
+        return [
+            ['Pending assignment', 'clinic_assignment', '10:00'],
+            ['Pending assignment', 'choose_doctor', '10:15'],
+            ['Scheduled', 'clinic_assignment', '09:45'],
+            ['Scheduled', 'choose_doctor', '10:00'],
+        ];
+    }
+
+    #[DataProvider('patientConflicts')]
+    public function test_patients_cannot_submit_overlapping_requests(string $status, string $mode, string $time): void
+    {
+        $existing = $this->visit($this->doctor(), '10:00', $status);
+        $otherDoctor = $this->doctor();
+
+        $this->actingAs($existing->patient->user)->postJson(route('appointments.store'), [
+            'booking_mode' => $mode, 'doctor_id' => $otherDoctor->id, 'reason' => 'Check-up',
+            'scheduled_at' => $existing->scheduled_at->format('Y-m-d').' '.$time,
+        ])->assertUnprocessable()->assertJsonValidationErrors('scheduled_at');
+
+        $this->assertDatabaseCount('appointments', 1);
+        $this->assertDatabaseCount('portal_notifications', 0);
+    }
+
+    public function test_pending_patient_visits_are_hidden_from_available_times(): void
+    {
+        $existing = $this->visit($this->doctor(), '10:15', 'Pending assignment');
+        $existing->update(['doctor_id' => null]);
+
+        $this->actingAs($existing->patient->user)->getJson(route('appointments.availability', [
+            'date' => $existing->scheduled_at->toDateString(),
+        ]))->assertOk()->assertJsonMissing(['label' => '10:00 AM'])->assertJsonMissing(['label' => '10:30 AM'])
+            ->assertJsonFragment(['label' => '11:00 AM']);
+    }
+
+    public function test_different_patients_can_request_the_same_preferred_time(): void
+    {
+        $existing = $this->visit($this->doctor(), '10:00', 'Pending assignment');
+        $existing->update(['doctor_id' => null]);
+        $patient = Patient::factory()->create();
+
+        $this->actingAs($patient->user)->postJson(route('appointments.store'), [
+            'booking_mode' => 'clinic_assignment', 'reason' => 'Check-up',
+            'scheduled_at' => $existing->scheduled_at->toDateTimeString(),
+        ])->assertCreated()->assertJsonPath('appointment.status', 'Pending assignment');
+
+        $this->assertDatabaseCount('appointments', 2);
+    }
+
+    public function test_patient_cannot_reschedule_into_another_pending_visit(): void
+    {
+        $existing = $this->visit($this->doctor(), '10:00', 'Pending assignment');
+        $visit = $this->visit($this->doctor(), '11:00');
+        $visit->patient()->associate($existing->patient)->save();
+
+        $this->actingAs($existing->patient->user)->patchJson(route('appointments.update', $visit), [
+            'doctor_id' => $visit->doctor_id, 'scheduled_at' => $existing->scheduled_at->toDateTimeString(),
+        ])->assertUnprocessable()->assertJsonValidationErrors('scheduled_at');
+
+        $this->assertDatabaseHas('appointments', ['id' => $visit->id, 'scheduled_at' => $visit->scheduled_at->toDateTimeString()]);
+        $this->assertDatabaseCount('portal_notifications', 0);
+    }
+
+    public function test_cancelled_patient_visit_no_longer_blocks_a_new_request(): void
+    {
+        $existing = $this->visit($this->doctor(), '10:00', 'Cancelled');
+
+        $this->actingAs($existing->patient->user)->postJson(route('appointments.store'), [
+            'booking_mode' => 'clinic_assignment', 'reason' => 'Check-up',
+            'scheduled_at' => $existing->scheduled_at->toDateTimeString(),
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('appointments', 2);
+    }
+
+    public function test_staff_cannot_confirm_an_existing_duplicate_patient_request(): void
+    {
+        $existing = $this->visit($this->doctor(), '10:00', 'Pending assignment');
+        $duplicate = $this->visit($this->doctor(), '10:00', 'Pending assignment');
+        $duplicate->patient()->associate($existing->patient)->save();
+
+        $this->actingAs(User::factory()->create(['is_staff' => true]))
+            ->patchJson(route('staff.appointments.assignment', $duplicate), ['doctor_id' => $duplicate->doctor_id])
+            ->assertUnprocessable()->assertJsonValidationErrors('scheduled_at');
+
+        $this->assertDatabaseHas('appointments', ['id' => $duplicate->id, 'status' => 'Pending assignment']);
+        $this->assertDatabaseCount('portal_notifications', 0);
+    }
+
     private function doctor(): Doctor
     {
         return Doctor::factory()->create(['name' => 'Dr. Reyes', 'department' => 'General Medicine', 'specialty' => 'General Medicine', 'is_active' => true]);

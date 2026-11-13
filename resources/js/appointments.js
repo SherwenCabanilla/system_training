@@ -3,6 +3,7 @@ const page = document.querySelector('#appointments-page');
 if (page) {
     const form = document.querySelector('#appointment-form');
     const list = document.querySelector('#appointment-list');
+    let appointmentMutationVersion = 0;
     const message = document.querySelector('#form-message');
     const appointmentId = document.querySelector('#appointment-id');
     const doctorIdInput = document.querySelector('#doctor_id');
@@ -106,17 +107,7 @@ if (page) {
     bookingModeInputs.forEach((input) => input.addEventListener('change', updateBookingMode));
     document.querySelector('#close-booking').addEventListener('click', closeAppointmentModal);
 
-    const appointmentDate = (value) => {
-        const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-
-        if (!parts) {
-            return new Date(value);
-        }
-
-        const [, year, month, day, hour, minute] = parts;
-
-        return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-    };
+    const appointmentDate = (value) => new Date(value);
 
     const timeLeftLabel = (scheduledAt) => {
         const minutesRemaining = Math.ceil((scheduledAt.getTime() - Date.now()) / 60000);
@@ -165,6 +156,12 @@ if (page) {
         document.querySelectorAll('[data-appointment-total]').forEach((element) => {
             element.textContent = Math.max(0, Number(element.textContent) + change);
         });
+    };
+
+    const sortUpcomingAppointments = () => {
+        const appointments = [...list.querySelectorAll('[data-id][data-scheduled-at]')];
+        appointments.sort((first, second) => appointmentDate(first.dataset.scheduledAt) - appointmentDate(second.dataset.scheduledAt));
+        list.append(...appointments);
     };
 
     const showAppointmentTab = (category) => {
@@ -279,6 +276,7 @@ if (page) {
 
     const remove = async (id) => {
         if (!confirm('Cancel this appointment?')) return;
+        appointmentMutationVersion++;
         const response = await fetch(`${page.dataset.baseUrl}/${id}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' } });
         if (response.ok) {
             document.querySelector(`[data-id="${id}"]`).remove();
@@ -290,22 +288,72 @@ if (page) {
         const article = document.createElement('article');
         article.dataset.id = appointment.id;
         article.className = 'group relative overflow-hidden rounded-2xl border border-slate-200 p-4 transition hover:border-teal-300 hover:shadow-sm sm:p-5';
-        article.dataset.scheduledAt = appointment.scheduled_at.slice(0, 16);
+        article.dataset.scheduledAt = appointment.scheduled_at;
         article.innerHTML = '<div class="flex flex-col gap-4 sm:flex-row sm:items-center"><div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-950 text-white"><span data-month class="text-[10px] font-semibold uppercase tracking-widest text-teal-300"></span><span data-day class="text-2xl font-bold leading-none"></span></div><div class="grow"><div class="flex flex-wrap items-center gap-2"><h3 data-doctor class="font-semibold text-slate-900"></h3><span data-status class="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800"></span><span data-countdown class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800"></span></div><p data-provider class="mt-1 text-sm font-medium text-slate-600"></p><p data-reason class="mt-2 text-sm leading-5 text-slate-500"></p></div><div class="flex shrink-0 gap-3"><button data-edit class="text-sm font-semibold text-teal-700 hover:text-teal-900">Edit</button><button data-delete class="text-sm font-semibold text-rose-600 hover:text-rose-800">Cancel</button></div></div>';
         const scheduledAt = appointmentDate(appointment.scheduled_at);
-        article.querySelector('[data-month]').textContent = scheduledAt.toLocaleDateString(undefined, { month: 'short' });
-        article.querySelector('[data-day]').textContent = scheduledAt.getDate();
+        article.querySelector('[data-month]').textContent = scheduledAt.toLocaleDateString(undefined, { timeZone: form.dataset.timezone, month: 'short' });
+        article.querySelector('[data-day]').textContent = scheduledAt.toLocaleDateString(undefined, { timeZone: form.dataset.timezone, day: 'numeric' });
         article.querySelector('[data-doctor]').textContent = appointment.doctor_name;
-        article.querySelector('[data-status]').textContent = appointment.status;
-        article.querySelector('[data-provider]').textContent = `${appointment.department} - ${scheduledAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+        const statusBadge = article.querySelector('[data-status]');
+        const statusColors = {
+            Scheduled: 'bg-teal-100 text-teal-800',
+            'Pending assignment': 'bg-amber-100 text-amber-800',
+            Completed: 'bg-slate-100 text-slate-700',
+        };
+        statusBadge.className = `rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[appointment.status] ?? 'bg-rose-100 text-rose-700'}`;
+        statusBadge.textContent = appointment.status;
+        article.querySelector('[data-provider]').textContent = `${appointment.department} - ${scheduledAt.toLocaleTimeString([], { timeZone: form.dataset.timezone, hour: 'numeric', minute: '2-digit' })}`;
         article.querySelector('[data-reason]').textContent = appointment.reason || 'No visit reason provided.';
         article.querySelector('[data-edit]').addEventListener('click', () => edit(appointment));
         article.querySelector('[data-delete]').addEventListener('click', () => remove(appointment.id));
         return article;
     };
 
-    document.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => edit(JSON.parse(button.dataset.edit))));
-    document.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => remove(button.dataset.delete)));
+    const bindAppointmentActions = (root) => {
+        root.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => edit(JSON.parse(button.dataset.edit))));
+        root.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => remove(button.dataset.delete)));
+    };
+    bindAppointmentActions(page);
+
+    let lastNotificationRevision = null;
+    let refreshingAppointments = false;
+    window.addEventListener('patient-notifications-updated', async (event) => {
+        const revision = event.detail.revision;
+        if (revision === lastNotificationRevision || refreshingAppointments || appointmentModal.open || confirmationModal.open) return;
+        refreshingAppointments = true;
+        const mutationVersion = appointmentMutationVersion;
+        try {
+            const response = await fetch(window.location.href, { headers: { Accept: 'text/html' }, cache: 'no-store', signal: AbortSignal.timeout(15000) });
+            if (!response.ok || response.redirected) return;
+            const updatedPage = new DOMParser().parseFromString(await response.text(), 'text/html');
+            if (mutationVersion !== appointmentMutationVersion || appointmentModal.open || confirmationModal.open) return;
+            if (list) {
+                const updatedList = updatedPage.querySelector('#appointment-list');
+                if (!updatedList) return;
+                list.innerHTML = updatedList.innerHTML;
+                bindAppointmentActions(list);
+                const history = document.querySelector('#completed-panel');
+                const updatedHistory = updatedPage.querySelector('#completed-panel');
+                if (history && updatedHistory) history.innerHTML = updatedHistory.innerHTML;
+                ['[data-upcoming-count]', '[data-appointment-total]', '#completed-tab span'].forEach((selector) => {
+                    const incoming = updatedPage.querySelector(selector);
+                    if (incoming) document.querySelectorAll(selector).forEach((element) => { element.textContent = incoming.textContent; });
+                });
+                updateCountdowns();
+            } else {
+                const dashboard = document.querySelector('#dashboard-appointments');
+                const updatedDashboard = updatedPage.querySelector('#dashboard-appointments');
+                if (!dashboard || !updatedDashboard) return;
+                dashboard.innerHTML = updatedDashboard.innerHTML;
+            }
+            lastNotificationRevision = revision;
+        } catch {
+            // Retry on the next notification poll without interrupting booking.
+        } finally {
+            refreshingAppointments = false;
+        }
+    });
+
     document.querySelector('#upcoming-tab')?.addEventListener('click', () => showAppointmentTab('upcoming'));
     document.querySelector('#completed-tab')?.addEventListener('click', () => showAppointmentTab('completed'));
     document.querySelector('#form-cancel').addEventListener('click', () => {
@@ -342,6 +390,7 @@ if (page) {
 
     confirmAppointmentButton.addEventListener('click', async () => {
         const id = appointmentId.value;
+        appointmentMutationVersion++;
         confirmAppointmentButton.disabled = true;
         confirmAppointmentButton.textContent = 'Saving...';
         try {
@@ -363,9 +412,10 @@ if (page) {
                     old.replaceWith(item);
                 } else {
                     document.querySelector('#empty-state')?.remove();
-                    list.prepend(item);
+                    list.append(item);
                     updateAppointmentCounts(1);
                 }
+                sortUpcomingAppointments();
             } else {
                 refreshDashboardAppointments();
             }

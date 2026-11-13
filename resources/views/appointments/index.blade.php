@@ -44,7 +44,7 @@
                 </div>
                 <div id="appointment-list" class="mt-4 space-y-3">
                     @forelse ($upcomingAppointments as $appointment)
-                        <article data-id="{{ $appointment->id }}" data-scheduled-at="{{ $appointment->scheduled_at->format('Y-m-d\\TH:i') }}" class="group relative overflow-hidden rounded-2xl border border-slate-200 p-4 transition hover:border-teal-300 hover:shadow-sm sm:p-5">
+                        <article data-id="{{ $appointment->id }}" data-scheduled-at="{{ $appointment->scheduled_at->format('c') }}" class="group relative overflow-hidden rounded-2xl border border-slate-200 p-4 transition hover:border-teal-300 hover:shadow-sm sm:p-5">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                                 <div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-950 text-white">
                                     <span class="text-[10px] font-semibold uppercase tracking-widest text-teal-300">{{ $appointment->scheduled_at->format('M') }}</span>
@@ -53,7 +53,7 @@
                                 <div class="grow">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 class="font-semibold text-slate-900">{{ $appointment->doctor_name }}</h3>
-                                        <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $appointment->status === 'Scheduled' ? 'bg-teal-100 text-teal-800' : ($appointment->status === 'Completed' ? 'bg-slate-100 text-slate-700' : 'bg-rose-100 text-rose-700') }}">{{ $appointment->status }}</span>
+                                        <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $appointment->status === 'Scheduled' ? 'bg-teal-100 text-teal-800' : ($appointment->status === 'Pending assignment' ? 'bg-amber-100 text-amber-800' : ($appointment->status === 'Completed' ? 'bg-slate-100 text-slate-700' : 'bg-rose-100 text-rose-700')) }}">{{ $appointment->status }}</span>
                                         <span data-countdown class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">Calculating time left</span>
                                     </div>
                                     <p class="mt-1 text-sm font-medium text-slate-600">{{ $appointment->department }} <span class="text-slate-300">·</span> {{ $appointment->scheduled_at->format('g:i A') }}</p>

@@ -97,6 +97,7 @@ class StaffDashboardController extends Controller
             $appointment = Appointment::query()->lockForUpdate()->findOrFail($appointment->id);
             abort_unless($appointment->status === 'Pending assignment', 422);
 
+            $availability->ensurePatientAvailable($appointment->patient_id, $appointment->scheduled_at, $appointment->id);
             $doctor = $availability->ensureAvailable($request->integer('doctor_id'), $appointment->scheduled_at, $appointment->id);
             $appointment->update(['doctor_id' => $doctor->id, 'doctor_name' => $doctor->name, 'department' => $doctor->department, 'status' => 'Scheduled']);
             $appointment->patient->portalNotifications()->create(['type' => 'appointment_assigned', 'title' => 'Appointment confirmed', 'body' => "Your appointment with {$doctor->name} is confirmed for {$appointment->scheduled_at->format('M j, Y g:i A')}."]);
@@ -112,6 +113,7 @@ class StaffDashboardController extends Controller
             $status = $request->string('status')->toString();
             if ($status === 'Scheduled') {
                 abort_if($appointment->doctor_id === null, 422, 'Assign a doctor before scheduling this visit.');
+                $availability->ensurePatientAvailable($appointment->patient_id, $appointment->scheduled_at, $appointment->id);
                 $availability->ensureAvailable($appointment->doctor_id, $appointment->scheduled_at, $appointment->id);
             }
             $appointment->update(['status' => $status]);

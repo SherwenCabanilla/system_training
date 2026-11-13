@@ -7,19 +7,48 @@
     </x-slot>
 
     <div id="medical-records-page" class="space-y-6">
-        <style>
-            #medical-records-page svg[aria-label="Heart rate trend chart with beats per minute reference"] {
-                height: 18rem !important;
-            }
-
-            #medical-records-page svg[aria-label="Heart rate trend chart with beats per minute reference"] polyline {
-                stroke-width: 6;
-            }
-        </style>
-        @php($latestVitalReading = $vitalReadings->last())
+        @php
+            $latestVitalReading = $vitalReadings->last();
+        @endphp
         <section class="rounded-3xl bg-slate-950 p-4 text-white shadow-sm sm:p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-teal-300">Vital signs overview</p><h2 class="mt-1 text-lg font-semibold">Recent measurements</h2></div><span class="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-slate-200">{{ $latestVitalReading?->recorded_on?->format('M j, Y') ?? 'No readings yet' }}</span></div><div class="mt-4 grid gap-3 sm:grid-cols-3"><div class="rounded-2xl bg-teal-500 p-3.5"><div class="flex items-center justify-between gap-2"><p class="text-xs font-medium text-teal-50">Heart rate</p><span class="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">{{ $heartRateStatus['label'] }}</span></div><p class="mt-1 text-2xl font-semibold">{{ $latestVitalReading?->heart_rate ?? '—' }}<span class="ml-1 text-xs font-medium">bpm</span></p></div><div class="rounded-2xl border border-white/10 bg-white/10 p-3.5"><div class="flex items-center justify-between gap-2"><p class="text-xs font-medium text-slate-200">Temperature</p><span class="rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $temperatureStatus['class'] }}">{{ $temperatureStatus['label'] }}</span></div><p class="mt-1 text-2xl font-semibold">{{ $latestVitalReading?->temperature ?? '—' }}<span class="ml-1 text-xs font-medium">°C</span></p></div><div class="rounded-2xl border border-white/10 bg-white/10 p-3.5"><div class="flex items-center justify-between gap-2"><p class="text-xs font-medium text-slate-200">Blood pressure</p><span class="rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $bloodPressureStatus['class'] }}">{{ $bloodPressureStatus['label'] }}</span></div><p class="mt-1 text-2xl font-semibold">{{ $latestVitalReading ? "{$latestVitalReading->systolic}/{$latestVitalReading->diastolic}" : '—' }}<span class="ml-1 text-xs font-medium">mmHg</span></p></div></div><p class="mt-3 text-xs text-slate-400">Demo readings only. Status badges are a guide, not a diagnosis.</p></section>
 
-        <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.7fr)]"><div class="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div class="flex items-end justify-between gap-3"><div><p class="text-sm font-semibold text-teal-700">Heart rate trend</p><h2 class="mt-1 text-xl font-semibold text-slate-900">Last 7 readings</h2></div><span class="text-sm font-semibold text-slate-500">bpm</span></div><div class="mt-4 rounded-2xl bg-slate-50 p-3"><p class="text-xs font-medium text-emerald-700">Shaded area: typical adult resting range (60–100 bpm)</p><svg viewBox="0 0 600 190" class="mt-2 h-40 w-full" role="img" aria-label="Heart rate trend chart with beats per minute reference"><rect x="38" y="25" width="545" height="104" fill="#ecfdf5"/><text x="2" y="29" fill="#64748b" font-size="11">100</text><text x="8" y="81" fill="#64748b" font-size="11">80</text><text x="8" y="133" fill="#64748b" font-size="11">60</text><line x1="38" y1="25" x2="583" y2="25" stroke="#bbf7d0"/><line x1="38" y1="77" x2="583" y2="77" stroke="#e2e8f0"/><line x1="38" y1="129" x2="583" y2="129" stroke="#bbf7d0"/><line x1="38" y1="155" x2="583" y2="155" stroke="#e2e8f0"/><polyline fill="none" stroke="#0f9f8f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="@foreach ($vitalReadings as $index => $reading){{ 42 + ($index * 88) }},{{ 155 - (($reading->heart_rate - 50) * 2.6) }} @endforeach"/>@foreach ($vitalReadings as $index => $reading)<circle cx="{{ 42 + ($index * 88) }}" cy="{{ 155 - (($reading->heart_rate - 50) * 2.6) }}" r="5" fill="#0f9f8f"><title>{{ $reading->recorded_on->format('M j') }}: {{ $reading->heart_rate }} bpm</title></circle>@endforeach</svg></div><div class="mt-1 flex justify-between pl-10 text-xs text-slate-500">@foreach ($vitalReadings as $reading)<span>{{ $reading->recorded_on->format('D') }}</span>@endforeach</div><div class="mt-auto grid grid-cols-3 gap-3 border-t border-slate-100 pt-5"><div class="rounded-2xl bg-teal-50 p-3"><p class="text-xs font-medium text-teal-700">Average</p><p class="mt-1 text-xl font-semibold text-teal-950">{{ $vitalReadings->isNotEmpty() ? round($vitalReadings->avg('heart_rate')) : '—' }} <span class="text-xs font-medium">bpm</span></p></div><div class="rounded-2xl bg-slate-50 p-3"><p class="text-xs font-medium text-slate-600">Lowest</p><p class="mt-1 text-xl font-semibold text-slate-900">{{ $vitalReadings->min('heart_rate') ?? '—' }} <span class="text-xs font-medium">bpm</span></p></div><div class="rounded-2xl bg-slate-50 p-3"><p class="text-xs font-medium text-slate-600">Highest</p><p class="mt-1 text-xl font-semibold text-slate-900">{{ $vitalReadings->max('heart_rate') ?? '—' }} <span class="text-xs font-medium">bpm</span></p></div></div></div><div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><p class="text-sm font-semibold text-teal-700">Visit measurements</p><h2 class="mt-1 text-xl font-semibold text-slate-900">Recent appointments</h2><div class="mt-5 space-y-3">@forelse ($vitalReadings->reverse() as $reading)<div class="border-b border-slate-100 pb-3 last:border-0"><div class="flex items-center justify-between gap-3"><p class="text-sm font-semibold text-slate-800">{{ $reading->recorded_on->format('M j') }}</p><p class="text-sm font-semibold text-slate-700">{{ $reading->systolic }}/{{ $reading->diastolic }} <span class="text-xs font-normal text-slate-500">mmHg</span></p></div><p class="mt-1 text-xs text-slate-500">Heart {{ $reading->heart_rate }} bpm <span class="px-1 text-slate-300">•</span> {{ $reading->appointment?->department ?? 'Clinical visit' }}</p></div>@empty<p class="text-sm text-slate-500">No vital readings available yet.</p>@endforelse</div></div></section>
+        <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.7fr)]"><div class="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            @php
+                $chartReadings = $vitalReadings->map(fn ($reading) => [
+                    'date' => $reading->recorded_on->format('M j, Y'),
+                    'shortDate' => $reading->recorded_on->format('M j'),
+                    'heart_rate' => $reading->heart_rate,
+                    'temperature' => $reading->temperature,
+                    'systolic' => $reading->systolic,
+                    'diastolic' => $reading->diastolic,
+                ]);
+            @endphp
+            <div id="vital-trends" data-readings='@json($chartReadings)'>
+                <p class="text-sm font-semibold text-teal-700">Vital signs trends</p>
+                <h2 class="mt-1 text-xl font-semibold text-slate-900">Last 7 readings</h2>
+                <p class="mt-1 text-xs text-slate-500">{{ $vitalReadings->isNotEmpty() ? $vitalReadings->first()->recorded_on->format('M j, Y').' - '.$vitalReadings->last()->recorded_on->format('M j, Y') : 'No readings yet' }}</p>
+                <div class="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Vital sign charts">
+                    @foreach (['heart_rate' => 'Heart rate', 'temperature' => 'Temperature', 'blood_pressure' => 'Blood pressure'] as $metric => $label)
+                        <button id="trend-tab-{{ $metric }}" type="button" role="tab" data-trend="{{ $metric }}" aria-controls="trend-panel" aria-selected="{{ $loop->first ? 'true' : 'false' }}" tabindex="{{ $loop->first ? '0' : '-1' }}" class="flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:text-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600 aria-selected:bg-white aria-selected:text-teal-800 aria-selected:shadow-sm">{{ $label }}</button>
+                    @endforeach
+                </div>
+                <div id="trend-panel" role="tabpanel" aria-labelledby="trend-tab-heart_rate" tabindex="0" class="mt-4">
+                    <div class="flex items-center justify-between gap-3"><h3 id="trend-title" class="text-sm font-semibold text-slate-800">Heart rate</h3><span id="trend-unit" class="text-xs text-slate-500">bpm</span></div>
+                    <div id="trend-legend" class="mt-2 flex min-h-5 flex-wrap gap-4 text-xs text-slate-600"></div>
+                    <div class="mt-2 flex h-64 items-center justify-center rounded-2xl bg-slate-50 p-2 sm:h-72">
+                        <svg id="trend-chart" viewBox="0 0 600 260" class="h-full w-full" role="img" aria-label="Heart rate trend"></svg>
+                        <p id="trend-empty" class="hidden px-4 text-center text-sm text-slate-500">No readings available yet.</p>
+                    </div>
+                    <div id="trend-stats" class="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4"></div>
+                    <p class="mt-3 text-xs text-slate-500">Each point represents a recorded visit. The scale adjusts to the selected measurement.</p>
+                    <details class="mt-3 text-sm text-slate-600">
+                        <summary class="cursor-pointer font-semibold text-teal-700">View exact readings</summary>
+                        <div class="mt-2 overflow-x-auto"><table class="w-full text-left text-xs"><caption class="sr-only">Measurements for the same seven recent readings</caption><thead id="trend-table-head"></thead><tbody id="trend-table-body"></tbody></table></div>
+                    </details>
+                </div>
+                <noscript><p class="mt-3 text-sm text-slate-500">Enable JavaScript to switch between charts. Your latest readings are shown above.</p></noscript>
+            </div>
+        </div><div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><p class="text-sm font-semibold text-teal-700">Visit measurements</p><h2 class="mt-1 text-xl font-semibold text-slate-900">Recent appointments</h2><div class="mt-5 space-y-3">@forelse ($vitalReadings->reverse() as $reading)<div class="border-b border-slate-100 pb-3 last:border-0"><div class="flex items-center justify-between gap-3"><p class="text-sm font-semibold text-slate-800">{{ $reading->recorded_on->format('M j') }}</p><p class="text-sm font-semibold text-slate-700">{{ $reading->systolic }}/{{ $reading->diastolic }} <span class="text-xs font-normal text-slate-500">mmHg</span></p></div><p class="mt-1 text-xs text-slate-500">Heart {{ $reading->heart_rate }} bpm <span class="px-1 text-slate-300">•</span> {{ $reading->appointment?->department ?? 'Clinical visit' }}</p></div>@empty<p class="text-sm text-slate-500">No vital readings available yet.</p>@endforelse</div></div></section>
 
         <section class="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.8fr)]">
             <div class="flex min-h-[600px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
