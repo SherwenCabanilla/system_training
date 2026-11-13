@@ -22,6 +22,9 @@ class AssignStaffAppointmentRequest extends FormRequest
      */
     public function rules(): array
     {
-        return ['doctor_id' => ['required', 'integer', 'exists:doctors,id']];
+        return [
+            'doctor_id' => ['required', 'integer', 'exists:doctors,id'],
+            'scheduled_at' => ['sometimes', 'required', 'date', 'after:now'],
+        ];
     }
 }

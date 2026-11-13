@@ -8,8 +8,6 @@ use App\Http\Requests\UpdateAppointmentRequest;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Patient;
-use Carbon\CarbonInterface;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,40 +47,12 @@ class AppointmentController extends Controller
             $exceptId = $editingAppointment?->id;
             abort_if($exceptId === null, 404);
         }
-        $day = $request->date('date')->startOfDay();
-        $doctorId = $request->filled('doctor_id') ? $request->integer('doctor_id') : null;
-        $patientId = $request->user()->patient?->id;
-        $busy = Appointment::query()
-            ->where(function (Builder $query) use ($patientId, $doctorId): void {
-                $query->where(function (Builder $query) use ($patientId): void {
-                    $query->where('patient_id', $patientId)->whereIn('status', ['Scheduled', 'Pending assignment']);
-                });
-                if ($doctorId !== null) {
-                    $query->orWhere(function (Builder $query) use ($doctorId): void {
-                        $query->where('doctor_id', $doctorId)->where('status', 'Scheduled');
-                    });
-                }
-            })
-            ->where('scheduled_at', '>', $day->copy()->subMinutes(AppointmentAvailability::DURATION_MINUTES))
-            ->where('scheduled_at', '<', $day->copy()->addDay()->addMinutes(AppointmentAvailability::DURATION_MINUTES))
-            ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId))
-            ->get(['scheduled_at']);
-        $isActive = $doctorId === null || Doctor::query()->whereKey($doctorId)->where('is_active', true)->exists();
-        $starts = [];
-        for ($minute = AppointmentAvailability::OPENING_HOUR * 60; $minute <= AppointmentAvailability::CLOSING_HOUR * 60 - AppointmentAvailability::DURATION_MINUTES && $isActive; $minute += AppointmentAvailability::DURATION_MINUTES) {
-            $starts[] = $day->copy()->addMinutes($minute);
-        }
-        if ($isActive && $editingAppointment?->scheduled_at->isSameDay($day)) {
-            $starts[] = $editingAppointment->scheduled_at;
-        }
-        $slots = [];
-        foreach (collect($starts)->unique(fn (CarbonInterface $start): string => $start->format('H:i'))->sort() as $start) {
-            $overlaps = $busy->contains(fn (Appointment $visit): bool => $visit->scheduled_at->gt($start->copy()->subMinutes(AppointmentAvailability::DURATION_MINUTES))
-                && $visit->scheduled_at->lt($start->copy()->addMinutes(AppointmentAvailability::DURATION_MINUTES)));
-            if ($start->isFuture() && $availability->isWithinClinicHours($start) && ! $overlaps) {
-                $slots[] = ['value' => $start->format('Y-m-d\TH:i'), 'label' => $start->format('g:i A')];
-            }
-        }
+        $slots = $availability->slots(
+            $request->user()->patient?->id,
+            $request->filled('doctor_id') ? $request->integer('doctor_id') : null,
+            $request->date('date'),
+            $editingAppointment,
+        );
 
         return response()->json(['slots' => $slots]);
     }

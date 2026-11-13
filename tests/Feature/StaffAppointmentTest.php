@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appointment;
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -210,5 +212,98 @@ class StaffAppointmentTest extends TestCase
             ->assertOk()
             ->assertSee('Request 10')
             ->assertViewHas('appointments', fn ($appointments) => $appointments->count() === 1);
+    }
+
+    public function test_staff_can_confirm_a_new_time_through_ajax_and_notify_the_patient(): void
+    {
+        $appointment = $this->pendingRequest();
+        $doctor = $this->assignmentDoctor();
+        $time = now()->addWeek()->setTime(14, 30);
+
+        $this->actingAs(User::factory()->create(['is_staff' => true]))
+            ->patchJson(route('staff.appointments.assignment', $appointment), [
+                'doctor_id' => $doctor->id, 'scheduled_at' => $time->toDateTimeString(),
+            ])->assertOk()->assertJsonPath('appointment_id', $appointment->id);
+
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'doctor_id' => $doctor->id, 'status' => 'Scheduled', 'scheduled_at' => $time->toDateTimeString()]);
+        $this->assertDatabaseHas('portal_notifications', ['patient_id' => $appointment->patient_id, 'type' => 'appointment_assigned', 'body' => "Your appointment with {$doctor->name} is confirmed for {$time->format('M j, Y g:i A')}."]);
+        $this->get(route('staff.requests'))->assertOk()->assertDontSee('data-assignment-row="'.$appointment->id.'"', false);
+    }
+
+    public function test_staff_availability_filters_doctor_and_patient_conflicts(): void
+    {
+        $appointment = $this->pendingRequest();
+        $doctor = $this->assignmentDoctor();
+        $otherPatient = $this->pendingRequest();
+        $otherPatient->update(['doctor_id' => $doctor->id, 'status' => 'Scheduled', 'scheduled_at' => $appointment->scheduled_at->copy()->setTime(11, 0)]);
+        $samePatient = $this->pendingRequest();
+        $samePatient->patient()->associate($appointment->patient)->save();
+        $samePatient->update(['scheduled_at' => $appointment->scheduled_at->copy()->setTime(12, 0)]);
+
+        $this->actingAs(User::factory()->create(['is_staff' => true]))
+            ->getJson(route('staff.appointments.availability', ['appointment' => $appointment, 'doctor_id' => $doctor->id, 'date' => $appointment->scheduled_at->toDateString()]))
+            ->assertOk()->assertJsonFragment(['label' => '10:00 AM'])
+            ->assertJsonMissing(['label' => '11:00 AM'])->assertJsonMissing(['label' => '12:00 PM']);
+        $this->patchJson(route('staff.appointments.assignment', $appointment), ['doctor_id' => $doctor->id, 'scheduled_at' => $otherPatient->scheduled_at->toDateTimeString()])
+            ->assertUnprocessable()->assertJsonValidationErrors('scheduled_at');
+
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'status' => 'Pending assignment', 'scheduled_at' => $appointment->scheduled_at->toDateTimeString()]);
+        $this->assertDatabaseCount('portal_notifications', 0);
+    }
+
+    public function test_patient_accounts_cannot_access_staff_availability_or_assign_requests(): void
+    {
+        $appointment = $this->pendingRequest();
+        $doctor = $this->assignmentDoctor();
+        $url = route('staff.appointments.availability', ['appointment' => $appointment, 'doctor_id' => $doctor->id, 'date' => $appointment->scheduled_at->toDateString()]);
+
+        $this->getJson($url)->assertUnauthorized();
+        $this->actingAs($appointment->patient->user)->getJson($url)->assertForbidden();
+        $this->patchJson(route('staff.appointments.assignment', $appointment), ['doctor_id' => $doctor->id])->assertForbidden();
+
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'status' => 'Pending assignment']);
+        $this->assertDatabaseCount('portal_notifications', 0);
+    }
+
+    public function test_confirming_an_already_assigned_request_does_not_notify_twice(): void
+    {
+        $appointment = $this->pendingRequest();
+        $doctor = $this->assignmentDoctor();
+        $staff = User::factory()->create(['is_staff' => true]);
+        $this->actingAs($staff)->patchJson(route('staff.appointments.assignment', $appointment), ['doctor_id' => $doctor->id])->assertOk();
+
+        $this->patchJson(route('staff.appointments.assignment', $appointment), ['doctor_id' => $doctor->id])->assertUnprocessable();
+        $this->getJson(route('staff.appointments.availability', ['appointment' => $appointment, 'doctor_id' => $doctor->id, 'date' => $appointment->scheduled_at->toDateString()]))->assertUnprocessable();
+
+        $this->assertDatabaseCount('portal_notifications', 1);
+    }
+
+    public function test_expired_requests_need_a_future_time_before_confirmation(): void
+    {
+        $appointment = $this->pendingRequest();
+        $appointment->update(['scheduled_at' => now()->subDay()->setTime(10, 0)]);
+        $doctor = $this->assignmentDoctor();
+
+        $this->actingAs(User::factory()->create(['is_staff' => true]))
+            ->patchJson(route('staff.appointments.assignment', $appointment), ['doctor_id' => $doctor->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('scheduled_at');
+        $this->patchJson(route('staff.appointments.assignment', $appointment), [
+            'doctor_id' => $doctor->id, 'scheduled_at' => now()->addDay()->setTime(10, 0)->toDateTimeString(),
+        ])->assertOk();
+
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'status' => 'Scheduled']);
+    }
+
+    private function pendingRequest(): Appointment
+    {
+        return Appointment::factory()->for(Patient::factory())->create([
+            'scheduled_at' => now()->addWeek()->setTime(10, 0), 'doctor_name' => 'Clinic assignment pending',
+            'department' => 'Awaiting clinic review', 'reason' => 'Shoulder pain', 'status' => 'Pending assignment',
+        ]);
+    }
+
+    private function assignmentDoctor(): Doctor
+    {
+        return Doctor::factory()->create(['name' => 'Dr. Reyes', 'department' => 'General Medicine', 'specialty' => 'General Medicine', 'is_active' => true]);
     }
 }

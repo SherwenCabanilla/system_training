@@ -33,6 +33,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::get('staff/upcoming', [StaffDashboardController::class, 'upcoming'])->name('staff.upcoming');
     Route::get('staff/history', [StaffDashboardController::class, 'history'])->name('staff.history');
     Route::patch('staff/appointments/{appointment}/status', [StaffDashboardController::class, 'updateAppointmentStatus'])->name('staff.appointments.status');
+    Route::get('staff/appointments/{appointment}/availability', [StaffDashboardController::class, 'assignmentAvailability'])->name('staff.appointments.availability');
     Route::patch('staff/appointments/{appointment}/assignment', [StaffDashboardController::class, 'assignAppointment'])->name('staff.appointments.assignment');
     Route::put('staff/appointments/{appointment}/vital-reading', [StaffDashboardController::class, 'storeVitalReading'])->name('staff.appointments.vital-reading');
 });

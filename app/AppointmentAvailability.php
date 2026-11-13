@@ -17,6 +17,46 @@ class AppointmentAvailability
 
     public const CLOSING_HOUR = 17;
 
+    /** @return list<array{value: string, label: string}> */
+    public function slots(?int $patientId, ?int $doctorId, CarbonInterface $date, ?Appointment $editingAppointment = null): array
+    {
+        $day = $date->copy()->startOfDay();
+        $exceptId = $editingAppointment?->id;
+        $busy = Appointment::query()
+            ->where(function (Builder $query) use ($patientId, $doctorId): void {
+                $query->where(function (Builder $query) use ($patientId): void {
+                    $query->where('patient_id', $patientId)->whereIn('status', ['Scheduled', 'Pending assignment']);
+                });
+                if ($doctorId !== null) {
+                    $query->orWhere(function (Builder $query) use ($doctorId): void {
+                        $query->where('doctor_id', $doctorId)->where('status', 'Scheduled');
+                    });
+                }
+            })
+            ->where('scheduled_at', '>', $day->copy()->subMinutes(self::DURATION_MINUTES))
+            ->where('scheduled_at', '<', $day->copy()->addDay()->addMinutes(self::DURATION_MINUTES))
+            ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId))
+            ->get(['scheduled_at']);
+        $isActive = $doctorId === null || Doctor::query()->whereKey($doctorId)->where('is_active', true)->exists();
+        $starts = [];
+        for ($minute = self::OPENING_HOUR * 60; $minute <= self::CLOSING_HOUR * 60 - self::DURATION_MINUTES && $isActive; $minute += self::DURATION_MINUTES) {
+            $starts[] = $day->copy()->addMinutes($minute);
+        }
+        if ($isActive && $editingAppointment?->scheduled_at->isSameDay($day)) {
+            $starts[] = $editingAppointment->scheduled_at;
+        }
+        $slots = [];
+        foreach (collect($starts)->unique(fn (CarbonInterface $start): string => $start->format('H:i'))->sort() as $start) {
+            $overlaps = $busy->contains(fn (Appointment $visit): bool => $visit->scheduled_at->gt($start->copy()->subMinutes(self::DURATION_MINUTES))
+                && $visit->scheduled_at->lt($start->copy()->addMinutes(self::DURATION_MINUTES)));
+            if ($start->isFuture() && $this->isWithinClinicHours($start) && ! $overlaps) {
+                $slots[] = ['value' => $start->format('Y-m-d\TH:i'), 'label' => $start->format('g:i A')];
+            }
+        }
+
+        return $slots;
+    }
+
     public function isWithinClinicHours(CarbonInterface $start): bool
     {
         $localStart = $start->copy()->setTimezone(config('app.timezone'));

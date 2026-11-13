@@ -8,7 +8,7 @@
     <div class="space-y-6" x-data="{ vitalForm: {} }" @open-vitals.window="vitalForm = $event.detail; $refs.vitalDialog.showModal()">
         @include('staff._feedback')
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <section id="staff-appointments-list" data-last-page="{{ $appointments->lastPage() }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
                 <h2 class="font-semibold text-slate-900">{{ $isAssignment ? 'Waiting for a doctor' : 'Appointments' }}</h2>
                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ $appointments->total() }} total</span>
@@ -16,7 +16,7 @@
             <div class="space-y-2 p-3 sm:p-4">
                 @forelse ($appointments as $appointment)
                     @if ($isAssignment)
-                        @include('staff._assignment-item', ['appointment' => $appointment, 'doctors' => $doctors])
+                        @include('staff._assignment-item', ['appointment' => $appointment])
                     @else
                         @include('staff._appointment-item', ['appointment' => $appointment, 'canRecordMeasurements' => false])
                     @endif
@@ -32,6 +32,9 @@
                 <div class="border-t border-slate-200 p-5">{{ $appointments->links() }}</div>
             @endif
         </section>
+        @if ($isAssignment)
+            @include('staff._assignment-panel')
+        @endif
         @include('staff._vital-modal')
     </div>
 </x-app-layout>
