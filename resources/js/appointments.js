@@ -383,6 +383,14 @@ if (page) {
                 const updatedDashboard = updatedPage.querySelector('#dashboard-appointments');
                 if (!dashboard || !updatedDashboard) return;
                 dashboard.innerHTML = updatedDashboard.innerHTML;
+                const healthSnapshot = dashboard.nextElementSibling;
+                const updatedHealthSnapshot = updatedDashboard.nextElementSibling;
+                if (healthSnapshot && updatedHealthSnapshot) healthSnapshot.outerHTML = updatedHealthSnapshot.outerHTML;
+                const dashboardUpdates = dashboard.closest('section')?.nextElementSibling;
+                const updatedDashboardUpdates = updatedDashboard.closest('section')?.nextElementSibling;
+                const latestRecord = dashboardUpdates?.firstElementChild;
+                const updatedLatestRecord = updatedDashboardUpdates?.firstElementChild;
+                if (latestRecord && updatedLatestRecord) latestRecord.outerHTML = updatedLatestRecord.outerHTML;
             }
             lastNotificationRevision = revision;
         } catch {

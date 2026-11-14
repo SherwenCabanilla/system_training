@@ -133,6 +133,7 @@ if (page) {
     const closeButton = document.querySelector('#record-modal-close');
     const resultSection = document.querySelector('#record-modal-result-section');
     const healthActivities = document.querySelector('#health-activities');
+    let notificationRevision = null;
 
     const closeModal = () => {
         modal.classList.add('hidden');
@@ -178,6 +179,27 @@ if (page) {
         const latestRecord = document.querySelector('[data-record-title]');
         if (latestRecord) {
             openRecord(latestRecord);
+        }
+    });
+
+    window.addEventListener('patient-notifications-updated', async (event) => {
+        const revision = event.detail?.revision;
+        if (revision === notificationRevision) {
+            return;
+        }
+        notificationRevision = revision;
+        if (revision === null || modal.classList.contains('flex')) {
+            return;
+        }
+        try {
+            const response = await fetch(window.location.href, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            healthActivities.innerHTML = data.html;
+        } catch {
+            // Keep the current timeline when the background refresh fails.
         }
     });
 

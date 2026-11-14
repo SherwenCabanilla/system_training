@@ -40,7 +40,7 @@ class PortalNotificationController extends Controller
                 'url' => $notification->destinationUrl(),
                 'link_label' => match ($notification->type) {
                     'appointment_assigned', 'appointment_status_updated', 'appointment_reminder', 'appointment_request_expired', 'appointment_proposed', 'appointment_proposal_expired', 'appointment_proposal_declined' => 'View appointments',
-                    'vital_reading_available' => 'View medical records',
+                    'vital_reading_available', 'medical_record_available' => 'View medical records',
                     default => 'View notifications',
                 },
             ])->values(),
