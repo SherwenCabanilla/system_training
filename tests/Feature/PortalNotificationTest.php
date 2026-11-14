@@ -12,6 +12,48 @@ class PortalNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_opening_a_card_marks_it_read_and_returns_its_safe_destination(): void
+    {
+        $this->freezeTime();
+        $patient = Patient::factory()->create();
+        $notification = PortalNotification::factory()->for($patient)->create([
+            'type' => 'appointment_proposed', 'title' => 'Review proposal', 'body' => '<script>unsafe</script>',
+            'target' => ['kind' => 'appointment', 'id' => 25],
+        ]);
+        $this->actingAs($patient->user)->get(route('notifications.index'))->assertOk()
+            ->assertSee('data-open-notification')->assertSee($notification->body)->assertDontSee($notification->body, false);
+        $this->assertNull($notification->fresh()->read_at);
+        $this->patchJson(route('notifications.read', $notification), ['open' => true, 'url' => 'https://example.com'])
+            ->assertOk()->assertJsonPath('url', route('appointments.index', ['appointment' => 25]));
+        $this->assertDatabaseHas('portal_notifications', ['id' => $notification->id, 'read_at' => now()->toDateTimeString()]);
+        $this->travel(1)->hours();
+        $this->patch(route('notifications.read', $notification), ['open' => true])->assertRedirect(route('appointments.index', ['appointment' => 25]));
+        $this->assertSame(now()->subHour()->toDateTimeString(), $notification->fresh()->read_at->toDateTimeString());
+    }
+
+    public function test_opening_another_patients_notification_is_rejected(): void
+    {
+        $notification = PortalNotification::factory()->for(Patient::factory())->create([
+            'type' => 'appointment_assigned', 'title' => 'Private', 'body' => 'Private appointment',
+        ]);
+        $this->patchJson(route('notifications.read', $notification), ['open' => true])->assertUnauthorized();
+        $this->actingAs(Patient::factory()->create()->user)->patchJson(route('notifications.read', $notification), ['open' => true])->assertNotFound();
+        $this->assertNull($notification->fresh()->read_at);
+    }
+
+    public function test_legacy_and_unknown_notification_targets_use_local_fallbacks(): void
+    {
+        $patient = Patient::factory()->create();
+        $notification = PortalNotification::factory()->for($patient)->create([
+            'type' => 'vital_reading_available', 'title' => 'Measurements', 'body' => 'Updated',
+        ]);
+        $this->actingAs($patient->user)->patchJson(route('notifications.read', $notification), ['open' => true])
+            ->assertOk()->assertJsonPath('url', route('medical-records.index'));
+        $notification->update(['type' => 'system_alert', 'target' => ['kind' => 'https://example.com', 'id' => 1]]);
+        $this->patchJson(route('notifications.read', $notification), ['open' => true])
+            ->assertOk()->assertJsonPath('url', route('notifications.index'));
+    }
+
     public function test_patient_can_mark_all_their_unread_notifications_as_read(): void
     {
         $this->freezeTime();

@@ -11,6 +11,25 @@ class MedicalRecordTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_notification_target_opens_the_page_of_an_older_reading_without_changing_chart_data(): void
+    {
+        $patient = Patient::factory()->create();
+        $reading = null;
+        for ($day = 1; $day <= 9; $day++) {
+            $created = $patient->vitalReadings()->create([
+                'recorded_on' => '2026-11-'.str_pad((string) $day, 2, '0', STR_PAD_LEFT),
+                'heart_rate' => 72, 'temperature' => 36.7, 'systolic' => 120, 'diastolic' => 80,
+            ]);
+            $reading ??= $created;
+        }
+        $this->actingAs($patient->user)->get(route('medical-records.index', ['record' => 'vital-'.$reading->id]))
+            ->assertOk()->assertSee('data-record-key="vital-'.$reading->id.'"', false)
+            ->assertViewHas('healthActivities', fn ($items) => $items->currentPage() === 2)
+            ->assertViewHas('vitalReadings', fn ($items) => $items->count() === 7 && ! $items->contains('id', $reading->id));
+        $this->actingAs(Patient::factory()->create()->user)->get(route('medical-records.index', ['record' => 'vital-'.$reading->id]))
+            ->assertOk()->assertDontSee('data-record-key="vital-'.$reading->id.'"', false);
+    }
+
     /**
      * A basic feature test example.
      */

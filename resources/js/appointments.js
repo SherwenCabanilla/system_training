@@ -1,9 +1,13 @@
+import { initializeAppointmentFilters } from './appointment-filters';
+import { confirmAction } from './confirmation-dialog';
+
 const page = document.querySelector('#appointments-page');
 
 if (page) {
     const form = document.querySelector('#appointment-form');
     const list = document.querySelector('#appointment-list');
     let appointmentMutationVersion = 0;
+    const refreshAppointmentFilters = initializeAppointmentFilters(list, document.querySelector('#appointment-filters'), document.querySelector('#appointment-filter-empty'));
     const message = document.querySelector('#form-message');
     const appointmentId = document.querySelector('#appointment-id');
     const doctorIdInput = document.querySelector('#doctor_id');
@@ -140,12 +144,17 @@ if (page) {
             }
 
             const isAwaitingUpdate = appointmentDate(appointment.dataset.scheduledAt) <= new Date();
-            countdown.textContent = timeLeftLabel(appointmentDate(appointment.dataset.scheduledAt));
+            const needsRescheduling = isAwaitingUpdate && appointment.dataset.appointmentStatus === 'Pending assignment';
+            countdown.textContent = appointment.dataset.appointmentStatus === 'Awaiting patient approval' ? 'Your approval is needed' : needsRescheduling ? 'Needs rescheduling' : timeLeftLabel(appointmentDate(appointment.dataset.scheduledAt));
+            appointment.querySelector('[data-expired-request]')?.classList.toggle('hidden', !needsRescheduling);
+            const editButton = appointment.querySelector('[data-edit]');
+            if (editButton) editButton.textContent = needsRescheduling ? 'Reschedule' : 'Edit';
             countdown.classList.toggle('bg-amber-50', !isAwaitingUpdate);
             countdown.classList.toggle('text-amber-800', !isAwaitingUpdate);
             countdown.classList.toggle('bg-slate-100', isAwaitingUpdate);
             countdown.classList.toggle('text-slate-600', isAwaitingUpdate);
         });
+        refreshAppointmentFilters();
     };
 
     const updateAppointmentCounts = (change) => {
@@ -162,22 +171,6 @@ if (page) {
         const appointments = [...list.querySelectorAll('[data-id][data-scheduled-at]')];
         appointments.sort((first, second) => appointmentDate(first.dataset.scheduledAt) - appointmentDate(second.dataset.scheduledAt));
         list.append(...appointments);
-    };
-
-    const showAppointmentTab = (category) => {
-        const isUpcoming = category === 'upcoming';
-        document.querySelector('#upcoming-panel').classList.toggle('hidden', !isUpcoming);
-        document.querySelector('#completed-panel').classList.toggle('hidden', isUpcoming);
-
-        ['upcoming', 'completed'].forEach((tab) => {
-            const isActive = tab === category;
-            const button = document.querySelector(`#${tab}-tab`);
-            button.setAttribute('aria-selected', String(isActive));
-            button.classList.toggle('border-teal-700', isActive);
-            button.classList.toggle('text-teal-800', isActive);
-            button.classList.toggle('border-transparent', !isActive);
-            button.classList.toggle('text-slate-500', !isActive);
-        });
     };
 
     const providerOptions = [...document.querySelectorAll('#provider-directory option')];
@@ -215,6 +208,10 @@ if (page) {
         });
         scheduledAtInput.value = new Intl.DateTimeFormat('sv-SE', { timeZone: form.dataset.timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(appointment.scheduled_at)).replace(' ', 'T');
         visitDateInput.value = scheduledAtInput.value.slice(0, 10);
+        if (visitDateInput.value < visitDateInput.min) {
+            visitDateInput.value = visitDateInput.min;
+            scheduledAtInput.value = '';
+        }
         const provider = providerOptions.find((option) => option.dataset.id === String(appointment.doctor_id));
         doctorSearchInput.value = provider?.value ?? '';
         form.reason.value = appointment.reason ?? '';
@@ -275,21 +272,28 @@ if (page) {
     };
 
     const remove = async (id) => {
-        if (!confirm('Cancel this appointment?')) return;
+        if (!await confirmAction({
+            title: 'Cancel this appointment?',
+            message: 'This appointment will be removed from your schedule. You can book another visit whenever you need one.',
+            confirmLabel: 'Cancel appointment',
+            cancelLabel: 'Keep appointment',
+        })) return;
         appointmentMutationVersion++;
         const response = await fetch(`${page.dataset.baseUrl}/${id}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' } });
         if (response.ok) {
             document.querySelector(`[data-id="${id}"]`).remove();
             updateAppointmentCounts(-1);
+            refreshAppointmentFilters();
         }
     };
 
     const render = (appointment) => {
         const article = document.createElement('article');
         article.dataset.id = appointment.id;
+        article.dataset.appointmentStatus = appointment.status;
         article.className = 'group relative overflow-hidden rounded-2xl border border-slate-200 p-4 transition hover:border-teal-300 hover:shadow-sm sm:p-5';
         article.dataset.scheduledAt = appointment.scheduled_at;
-        article.innerHTML = '<div class="flex flex-col gap-4 sm:flex-row sm:items-center"><div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-950 text-white"><span data-month class="text-[10px] font-semibold uppercase tracking-widest text-teal-300"></span><span data-day class="text-2xl font-bold leading-none"></span></div><div class="grow"><div class="flex flex-wrap items-center gap-2"><h3 data-doctor class="font-semibold text-slate-900"></h3><span data-status class="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800"></span><span data-countdown class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800"></span></div><p data-provider class="mt-1 text-sm font-medium text-slate-600"></p><p data-reason class="mt-2 text-sm leading-5 text-slate-500"></p></div><div class="flex shrink-0 gap-3"><button data-edit class="text-sm font-semibold text-teal-700 hover:text-teal-900">Edit</button><button data-delete class="text-sm font-semibold text-rose-600 hover:text-rose-800">Cancel</button></div></div>';
+        article.innerHTML = '<div class="flex flex-col gap-4 sm:flex-row sm:items-center"><div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-950 text-white"><span data-month class="text-[10px] font-semibold uppercase tracking-widest text-teal-300"></span><span data-day class="text-2xl font-bold leading-none"></span></div><div class="grow"><div class="flex flex-wrap items-center gap-2"><h3 data-doctor class="font-semibold text-slate-900"></h3><span data-status class="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800"></span><span data-countdown class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800"></span></div><p data-provider class="mt-1 text-sm font-medium text-slate-600"></p><p data-expired-request class="mt-2 hidden text-sm text-amber-800">Preferred time passed without confirmation. Choose a new time or cancel this request.</p><p data-reason class="mt-2 text-sm leading-5 text-slate-500"></p></div><div class="flex shrink-0 gap-3"><button data-edit class="text-sm font-semibold text-teal-700 hover:text-teal-900">Edit</button><button data-delete class="text-sm font-semibold text-rose-600 hover:text-rose-800">Cancel</button></div></div>';
         const scheduledAt = appointmentDate(appointment.scheduled_at);
         article.querySelector('[data-month]').textContent = scheduledAt.toLocaleDateString(undefined, { timeZone: form.dataset.timezone, month: 'short' });
         article.querySelector('[data-day]').textContent = scheduledAt.toLocaleDateString(undefined, { timeZone: form.dataset.timezone, day: 'numeric' });
@@ -314,6 +318,40 @@ if (page) {
         root.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => remove(button.dataset.delete)));
     };
     bindAppointmentActions(page);
+
+    document.querySelector('#load-more-appointments')?.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        button.textContent = 'Loading...';
+        button.classList.add('pointer-events-none', 'opacity-60');
+
+        try {
+            const response = await fetch(button.href, { headers: { Accept: 'text/html' } });
+
+            if (!response.ok) {
+                throw new Error('Unable to load more appointments.');
+            }
+
+            const parsedDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const nextAppointments = parsedDocument.querySelectorAll('#appointment-list article[data-id]');
+            list.append(...nextAppointments);
+            bindAppointmentActions(list);
+
+            const nextButton = parsedDocument.querySelector('#load-more-appointments');
+            if (nextButton) {
+                button.href = nextButton.href;
+                button.textContent = 'Load 10 more appointments';
+                button.classList.remove('pointer-events-none', 'opacity-60');
+            } else {
+                button.parentElement.remove();
+            }
+
+            updateCountdowns();
+        } catch {
+            button.textContent = 'Try loading more appointments';
+            button.classList.remove('pointer-events-none', 'opacity-60');
+        }
+    });
 
     let lastNotificationRevision = null;
     let refreshingAppointments = false;
@@ -354,8 +392,6 @@ if (page) {
         }
     });
 
-    document.querySelector('#upcoming-tab')?.addEventListener('click', () => showAppointmentTab('upcoming'));
-    document.querySelector('#completed-tab')?.addEventListener('click', () => showAppointmentTab('completed'));
     document.querySelector('#form-cancel').addEventListener('click', () => {
         reset();
         closeAppointmentModal();
@@ -435,4 +471,22 @@ if (page) {
             confirmAppointmentButton.textContent = id ? 'Save changes' : 'Confirm appointment';
         }
     });
+    const targetId = new URLSearchParams(window.location.search).get('appointment');
+    if (targetId && list) {
+        const target = [...page.querySelectorAll('article[data-id]')].find((card) => card.dataset.id === targetId);
+        if (target) {
+            const category = target.closest('#completed-panel') ? 'history' : 'all';
+            document.querySelector(`[data-appointment-filter="${category}"]`)?.click();
+            target.classList.add('ring-2', 'ring-teal-600');
+            target.setAttribute('tabindex', '-1');
+            target.focus({ preventScroll: true });
+            target.scrollIntoView({ block: 'center' });
+        } else {
+            const notice = document.createElement('p');
+            notice.className = 'rounded-xl bg-slate-100 p-4 text-sm text-slate-600';
+            notice.textContent = 'This appointment is no longer available. Your current appointments are shown below.';
+            page.prepend(notice);
+        }
+    }
+
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\AppointmentProposalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MedicalRecordController;
 use App\Http\Controllers\PortalNotificationController;
@@ -16,6 +17,7 @@ Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verif
 
 Route::middleware('auth')->group(function () {
     Route::get('appointments/availability', [AppointmentController::class, 'availability'])->name('appointments.availability');
+    Route::patch('appointments/{appointment}/proposal', [AppointmentProposalController::class, 'update'])->name('appointments.proposal');
     Route::resource('appointments', AppointmentController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('medical-records', [MedicalRecordController::class, 'index'])->name('medical-records.index');
     Route::get('notifications', [PortalNotificationController::class, 'index'])->name('notifications.index');
@@ -28,6 +30,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'staff'])->group(function () {
+    Route::patch('staff/appointments/{appointment}/proposal', [AppointmentProposalController::class, 'update'])->name('staff.appointments.proposal');
     Route::get('staff', StaffDashboardController::class)->name('staff.dashboard');
     Route::get('staff/requests', [StaffDashboardController::class, 'requests'])->name('staff.requests');
     Route::get('staff/upcoming', [StaffDashboardController::class, 'upcoming'])->name('staff.upcoming');

@@ -44,7 +44,28 @@ class AppointmentTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('upcomingAppointments', fn ($appointments) => $appointments->count() === 1);
         $response->assertViewHas('completedAppointments', fn ($appointments) => $appointments->count() === 1);
-        $response->assertSeeInOrder(['Upcoming appointments', 'Dr. Ana Reyes', 'Appointment history', 'Dr. Nina Lim']);
+        $response->assertSeeInOrder(['Open appointments', 'Dr. Ana Reyes', 'Appointment history', 'Dr. Nina Lim']);
+    }
+
+    public function test_appointments_page_shows_ten_open_appointments_per_page(): void
+    {
+        $user = User::factory()->create();
+        $patient = Patient::query()->create(['user_id' => $user->id]);
+
+        foreach (range(1, 11) as $day) {
+            $patient->appointments()->create([
+                'scheduled_at' => now()->addDays($day)->setTime(10, 0),
+                'doctor_name' => "Dr. {$day}",
+                'department' => 'Internal Medicine',
+                'status' => 'Scheduled',
+            ]);
+        }
+
+        $this->actingAs($user)->get(route('appointments.index'))
+            ->assertOk()
+            ->assertViewHas('upcomingAppointments', fn ($appointments) => $appointments->count() === 10 && $appointments->total() === 11)
+            ->assertSee('Load 10 more appointments')
+            ->assertDontSee('Dr. 11');
     }
 
     public function test_patient_can_request_care_with_a_description_without_selecting_a_specialty(): void

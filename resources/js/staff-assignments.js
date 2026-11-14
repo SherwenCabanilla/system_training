@@ -4,7 +4,7 @@ if (panel) {
     const form = document.querySelector('#assignment-form');
     const doctorSearch = document.querySelector('#assignment-doctor-search');
     const doctorId = document.querySelector('#assignment-doctor-id');
-    const doctors = [...document.querySelectorAll('#assignment-doctors option')];
+    const doctors = [...document.querySelectorAll('#assignment-doctor-search option[data-id]')];
     const date = document.querySelector('#assignment-date');
     const time = document.querySelector('#assignment-time');
     const confirm = document.querySelector('#confirm-assignment');
@@ -15,12 +15,18 @@ if (panel) {
     let loading = false;
     let saving = false;
     let requestVersion = 0;
+    let previousOverflow = '';
 
     const updateSummary = () => {
         document.querySelector('#assignment-summary-doctor').textContent = doctorId.value ? doctorSearch.value : 'Choose a doctor';
         document.querySelector('#assignment-summary-time').textContent = time.value
             ? `${date.value} - ${time.selectedOptions[0].textContent}`
             : 'Choose an available date and time';
+        const changed = time.value && activeRequest && (time.value !== activeRequest.preferred || (activeRequest.doctorId && activeRequest.doctorId !== doctorId.value));
+        if (!saving) confirm.textContent = changed ? 'Send proposal' : 'Confirm appointment';
+        document.querySelector('#assignment-approval-note').textContent = changed
+            ? 'This change needs patient approval. The slot will be held until the response deadline.'
+            : 'The requested time will be confirmed and the patient notified.';
         confirm.disabled = saving || loading || !doctorId.value || !time.value;
     };
     const loadTimes = async () => {
@@ -52,7 +58,7 @@ if (panel) {
                 ? 'No available times. Choose another doctor or date.'
                 : time.value === activeRequest.preferred
                     ? 'The patient\'s preferred time is available.'
-                    : 'Choose an available time. The patient will receive the confirmed schedule.';
+                    : 'Choose an available time. Changes to the request need patient approval.';
         } catch (failure) {
             if (version !== requestVersion) return;
             time.replaceChildren(new Option('Unable to load times', ''));
@@ -68,7 +74,7 @@ if (panel) {
     };
     panel.querySelectorAll('[data-close-assignment]').forEach((button) => button.addEventListener('click', closePanel));
     panel.addEventListener('cancel', (event) => { if (saving) event.preventDefault(); });
-    panel.addEventListener('close', () => { requestVersion++; if (trigger?.isConnected) trigger.focus(); });
+    panel.addEventListener('close', () => { document.documentElement.style.overflow = previousOverflow; requestVersion++; if (trigger?.isConnected) trigger.focus(); });
     panel.addEventListener('click', (event) => { if (event.target === panel) closePanel(); });
 
     document.addEventListener('click', (event) => {
@@ -86,7 +92,9 @@ if (panel) {
         document.querySelector('#assignment-email').textContent = activeRequest.email;
         document.querySelector('#assignment-concern').textContent = activeRequest.reason;
         document.querySelector('#assignment-preference').textContent = activeRequest.preferredLabel;
+        previousOverflow = document.documentElement.style.overflow;
         panel.showModal();
+        document.documentElement.style.overflow = 'hidden';
         panel.querySelector('.overflow-y-auto').scrollTop = 0;
         loadTimes();
     });
@@ -97,7 +105,6 @@ if (panel) {
         error.textContent = '';
         loadTimes();
     };
-    doctorSearch.addEventListener('input', chooseDoctor);
     doctorSearch.addEventListener('change', chooseDoctor);
     date.addEventListener('click', () => { if (typeof date.showPicker === 'function') date.showPicker(); });
     date.addEventListener('change', () => { error.textContent = ''; loadTimes(); });
@@ -120,6 +127,11 @@ if (panel) {
         }
         throw new Error('Unable to refresh requests.');
     };
+    window.addEventListener('staff-proposal-updated', () => refreshRequests().catch(() => {
+        const feedback = document.querySelector('#assignment-feedback');
+        feedback.textContent = 'Response saved. Refresh the list to see the latest status.';
+        feedback.classList.remove('hidden');
+    }));
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (saving || loading || !doctorId.value || !time.value || !form.reportValidity()) return;

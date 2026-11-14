@@ -10,7 +10,7 @@
 
         <section id="staff-appointments-list" data-last-page="{{ $appointments->lastPage() }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
-                <h2 class="font-semibold text-slate-900">{{ $isAssignment ? 'Waiting for a doctor' : 'Appointments' }}</h2>
+                <h2 class="font-semibold text-slate-900">{{ $isAssignment ? 'Requests and patient approvals' : 'Appointments' }}</h2>
                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{{ $appointments->total() }} total</span>
             </div>
             <div class="space-y-2 p-3 sm:p-4">

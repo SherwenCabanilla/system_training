@@ -181,6 +181,19 @@ if (page) {
         }
     });
 
+    const targetRecord = new URLSearchParams(window.location.search).get('record');
+    if (targetRecord) {
+        const button = [...document.querySelectorAll('[data-record-key]')].find((item) => item.dataset.recordKey === targetRecord);
+        if (button) {
+            openRecord(button);
+        } else {
+            const notice = document.createElement('p');
+            notice.className = 'rounded-xl bg-slate-100 p-4 text-sm text-slate-600';
+            notice.textContent = 'This record is no longer available. Your current medical records are shown below.';
+            page.prepend(notice);
+        }
+    }
+
     closeButton.addEventListener('click', closeModal);
     modal.addEventListener('click', (event) => {
         if (event.target === modal) {

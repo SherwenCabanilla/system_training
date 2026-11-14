@@ -24,5 +24,6 @@
                 <p class="mt-6 text-center text-xs leading-5 text-slate-500">For demonstration only. This portal uses sample patient information.</p>
             </div>
         </div>
+        <x-confirmation-dialog />
     </body>
 </html>

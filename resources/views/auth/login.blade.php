@@ -18,7 +18,13 @@
 
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="mt-1 block w-full border-slate-300 focus:border-teal-600 focus:ring-teal-600" type="password" name="password" required autocomplete="current-password" />
+            <div class="relative mt-1">
+                <x-text-input id="password" data-password-input class="block w-full border-slate-300 pr-16 focus:border-teal-600 focus:ring-teal-600" type="password" name="password" required autocomplete="current-password" />
+                <button data-password-toggle type="button" aria-controls="password" aria-pressed="false" class="absolute inset-y-0 right-0 rounded-r-md px-4 text-sm font-semibold text-teal-700 transition hover:text-teal-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-600">
+                    <span data-password-toggle-label>Show</span>
+                    <span class="sr-only"> password</span>
+                </button>
+            </div>
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
 

@@ -28,5 +28,6 @@
         @if (! Auth::user()->is_staff)
             @include('layouts.notification-toast')
         @endif
+        <x-confirmation-dialog />
     </body>
 </html>

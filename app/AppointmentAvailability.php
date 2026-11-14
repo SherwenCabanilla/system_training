@@ -25,11 +25,11 @@ class AppointmentAvailability
         $busy = Appointment::query()
             ->where(function (Builder $query) use ($patientId, $doctorId): void {
                 $query->where(function (Builder $query) use ($patientId): void {
-                    $query->where('patient_id', $patientId)->whereIn('status', ['Scheduled', 'Pending assignment']);
+                    $query->where('patient_id', $patientId)->occupyingSlot(true);
                 });
                 if ($doctorId !== null) {
                     $query->orWhere(function (Builder $query) use ($doctorId): void {
-                        $query->where('doctor_id', $doctorId)->where('status', 'Scheduled');
+                        $query->where('doctor_id', $doctorId)->occupyingSlot();
                     });
                 }
             })
@@ -77,7 +77,7 @@ class AppointmentAvailability
     {
         return Appointment::query()
             ->where('doctor_id', $doctorId)
-            ->where('status', 'Scheduled')
+            ->occupyingSlot()
             ->where('scheduled_at', '>', $start->copy()->subMinutes(self::DURATION_MINUTES))
             ->where('scheduled_at', '<', $start->copy()->addMinutes(self::DURATION_MINUTES))
             ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId));
@@ -89,7 +89,7 @@ class AppointmentAvailability
         Patient::query()->lockForUpdate()->findOrFail($patientId);
         $conflict = Appointment::query()
             ->where('patient_id', $patientId)
-            ->whereIn('status', ['Scheduled', 'Pending assignment'])
+            ->occupyingSlot(true)
             ->where('scheduled_at', '>', $start->copy()->subMinutes(self::DURATION_MINUTES))
             ->where('scheduled_at', '<', $start->copy()->addMinutes(self::DURATION_MINUTES))
             ->when($exceptId !== null, fn (Builder $query): Builder => $query->whereKeyNot($exceptId))

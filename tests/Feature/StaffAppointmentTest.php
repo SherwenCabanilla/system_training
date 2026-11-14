@@ -214,7 +214,7 @@ class StaffAppointmentTest extends TestCase
             ->assertViewHas('appointments', fn ($appointments) => $appointments->count() === 1);
     }
 
-    public function test_staff_can_confirm_a_new_time_through_ajax_and_notify_the_patient(): void
+    public function test_staff_can_propose_a_new_time_through_ajax_and_notify_the_patient(): void
     {
         $appointment = $this->pendingRequest();
         $doctor = $this->assignmentDoctor();
@@ -225,9 +225,9 @@ class StaffAppointmentTest extends TestCase
                 'doctor_id' => $doctor->id, 'scheduled_at' => $time->toDateTimeString(),
             ])->assertOk()->assertJsonPath('appointment_id', $appointment->id);
 
-        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'doctor_id' => $doctor->id, 'status' => 'Scheduled', 'scheduled_at' => $time->toDateTimeString()]);
-        $this->assertDatabaseHas('portal_notifications', ['patient_id' => $appointment->patient_id, 'type' => 'appointment_assigned', 'body' => "Your appointment with {$doctor->name} is confirmed for {$time->format('M j, Y g:i A')}."]);
-        $this->get(route('staff.requests'))->assertOk()->assertDontSee('data-assignment-row="'.$appointment->id.'"', false);
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'doctor_id' => $doctor->id, 'status' => 'Awaiting patient approval', 'scheduled_at' => $time->toDateTimeString()]);
+        $this->assertDatabaseHas('portal_notifications', ['patient_id' => $appointment->patient_id, 'type' => 'appointment_proposed']);
+        $this->get(route('staff.requests'))->assertOk()->assertSee('Awaiting patient approval');
     }
 
     public function test_staff_availability_filters_doctor_and_patient_conflicts(): void
@@ -291,7 +291,7 @@ class StaffAppointmentTest extends TestCase
             'doctor_id' => $doctor->id, 'scheduled_at' => now()->addDay()->setTime(10, 0)->toDateTimeString(),
         ])->assertOk();
 
-        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'status' => 'Scheduled']);
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'status' => 'Awaiting patient approval']);
     }
 
     private function pendingRequest(): Appointment

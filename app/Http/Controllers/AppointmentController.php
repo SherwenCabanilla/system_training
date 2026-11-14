@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\AppointmentAvailability;
+use App\AppointmentProposals;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
 use App\Models\Appointment;
@@ -16,13 +17,15 @@ use Illuminate\View\View;
 
 class AppointmentController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, AppointmentProposals $proposals): View
     {
+        $proposals->expire($this->patientFor($request)->id);
         $appointments = $this->patientFor($request)->appointments();
         $upcomingAppointments = (clone $appointments)
-            ->whereIn('status', ['Scheduled', 'Pending assignment'])
+            ->whereIn('status', ['Scheduled', 'Pending assignment', 'Awaiting patient approval'])
             ->orderBy('scheduled_at')
-            ->get();
+            ->orderBy('id')
+            ->paginate(10);
         $completedAppointments = (clone $appointments)
             ->whereIn('status', ['Completed', 'Missed', 'Cancelled'])
             ->orderByDesc('scheduled_at')
@@ -74,7 +77,7 @@ class AppointmentController extends Controller
                 'reason' => $request->string('reason')->toString() ?: null,
                 'status' => $isClinicAssignment ? 'Pending assignment' : 'Scheduled',
             ]);
-            $patient->portalNotifications()->create([
+            $patient->portalNotifications()->create(['target' => ['kind' => 'appointment', 'id' => $appointment->id],
                 'type' => $isClinicAssignment ? 'appointment_assignment_requested' : 'appointment_created',
                 'title' => $isClinicAssignment ? 'Clinic assignment requested' : 'Appointment request submitted',
                 'body' => $isClinicAssignment
@@ -94,6 +97,7 @@ class AppointmentController extends Controller
             $availability->ensureWithinClinicHours($scheduledAt);
             $patient = $this->patientFor($request);
             abort_unless($appointment->patient_id === $patient->id, 404);
+            abort_if($appointment->status === 'Awaiting patient approval', 422, 'Respond to the proposed schedule before editing this request.');
             $availability->ensurePatientAvailable($patient->id, $scheduledAt, $appointment->id);
             if ($appointment->doctor_id !== null && ! $request->filled('doctor_id')) {
                 throw ValidationException::withMessages(['doctor_id' => 'This visit now has an assigned doctor. Please refresh before editing.']);
@@ -106,7 +110,7 @@ class AppointmentController extends Controller
                 'doctor_name' => $doctor?->name ?? $appointment->doctor_name,
                 'department' => $doctor?->department ?? $appointment->department,
             ]);
-            $patient->portalNotifications()->create([
+            $patient->portalNotifications()->create(['target' => ['kind' => 'appointment', 'id' => $appointment->id],
                 'type' => 'appointment_updated',
                 'title' => 'Appointment updated',
                 'body' => "Your appointment with {$appointment->doctor_name} was updated for {$appointment->scheduled_at->format('M j, Y g:i A')}.",
@@ -118,16 +122,20 @@ class AppointmentController extends Controller
 
     public function destroy(Request $request, Appointment $appointment): JsonResponse
     {
-        $patient = $this->patientFor($request);
-        abort_unless($appointment->patient_id === $patient->id, 404);
-        $patient->portalNotifications()->create([
-            'type' => 'appointment_cancelled',
-            'title' => 'Appointment cancelled',
-            'body' => "Your {$appointment->department} appointment with {$appointment->doctor_name} on {$appointment->scheduled_at->format('M j, Y g:i A')} was cancelled.",
-        ]);
-        $appointment->delete();
+        return DB::transaction(function () use ($request, $appointment): JsonResponse {
+            $appointment = Appointment::query()->lockForUpdate()->findOrFail($appointment->id);
+            $patient = $this->patientFor($request);
+            abort_unless($appointment->patient_id === $patient->id, 404);
+            abort_if($appointment->status === 'Awaiting patient approval', 409, 'Review the proposal and use Cancel request to cancel it.');
+            $patient->portalNotifications()->create(['target' => ['kind' => 'appointment', 'id' => $appointment->id],
+                'type' => 'appointment_cancelled',
+                'title' => 'Appointment cancelled',
+                'body' => "Your {$appointment->department} appointment with {$appointment->doctor_name} on {$appointment->scheduled_at->format('M j, Y g:i A')} was cancelled.",
+            ]);
+            $appointment->delete();
 
-        return response()->json(['message' => 'Appointment deleted.']);
+            return response()->json(['message' => 'Appointment deleted.']);
+        }, 5);
     }
 
     private function patientFor(Request $request): Patient
