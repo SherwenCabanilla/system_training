@@ -10,7 +10,7 @@
         </div>
     </x-slot>
 
-    <div class="space-y-6" x-data="{ vitalForm: {} }" @open-vitals.window="vitalForm = $event.detail; $refs.vitalDialog.showModal()">
+    <div class="space-y-6" x-data="{ vitalForm: {}, medicalRecordForm: {} }" @open-vitals.window="vitalForm = $event.detail; $refs.vitalDialog.showModal()" @open-medical-record.window="medicalRecordForm = $event.detail; $refs.medicalRecordDialog.showModal()">
         @include('staff._feedback')
         <section aria-label="Clinic summary" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             @foreach ([
@@ -43,5 +43,6 @@
             ])
         </section>
         @include('staff._vital-modal')
+        @include('staff._medical-record-modal')
     </div>
 </x-app-layout>

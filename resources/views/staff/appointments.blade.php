@@ -5,7 +5,7 @@
         <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{{ $description }}</p>
     </x-slot>
 
-    <div class="space-y-6" x-data="{ vitalForm: {} }" @open-vitals.window="vitalForm = $event.detail; $refs.vitalDialog.showModal()">
+    <div class="space-y-6" x-data="{ vitalForm: {}, medicalRecordForm: {} }" @open-vitals.window="vitalForm = $event.detail; $refs.vitalDialog.showModal()" @open-medical-record.window="medicalRecordForm = $event.detail; $refs.medicalRecordDialog.showModal()">
         @include('staff._feedback')
 
         <section id="staff-appointments-list" data-last-page="{{ $appointments->lastPage() }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -36,5 +36,6 @@
             @include('staff._assignment-panel')
         @endif
         @include('staff._vital-modal')
+        @include('staff._medical-record-modal')
     </div>
 </x-app-layout>

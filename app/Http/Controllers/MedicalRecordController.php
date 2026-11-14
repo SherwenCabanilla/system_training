@@ -30,16 +30,30 @@ class MedicalRecordController extends Controller
         $bloodPressureStatus = VitalReadingStatus::bloodPressure($vitalReadings->last()?->systolic, $vitalReadings->last()?->diastolic);
         $heartRateStatus = VitalReadingStatus::heartRate($vitalReadings->last()?->heart_rate);
         $temperatureStatus = VitalReadingStatus::temperature($vitalReadings->last()?->temperature);
-        $healthActivities = $medicalRecords->map(fn ($medicalRecord) => [
-            'key' => 'record-'.$medicalRecord->id,
-            'date' => $medicalRecord->recorded_on,
-            'type' => $medicalRecord->record_type,
-            'title' => $medicalRecord->title,
-            'provider' => $medicalRecord->provider_name,
-            'summary' => $medicalRecord->summary,
-            'result' => $medicalRecord->result_summary,
-            'is_vital_reading' => false,
-        ])->concat($activityReadings->map(fn ($vitalReading) => [
+        $linkedVitalReadingIds = collect();
+        $healthActivities = $medicalRecords->map(function ($medicalRecord) use ($activityReadings, &$linkedVitalReadingIds): array {
+            $vitalReading = $activityReadings->first(fn ($reading): bool => $reading->recorded_on->isSameDay($medicalRecord->recorded_on)
+                && $reading->appointment?->doctor_name === $medicalRecord->provider_name);
+            if ($vitalReading !== null) {
+                $linkedVitalReadingIds->push($vitalReading->id);
+            }
+
+            return [
+                'key' => 'record-'.$medicalRecord->id,
+                'date' => $medicalRecord->recorded_on,
+                'type' => $medicalRecord->record_type,
+                'title' => $medicalRecord->title,
+                'provider' => $medicalRecord->provider_name,
+                'summary' => $vitalReading === null
+                    ? $medicalRecord->summary
+                    : $medicalRecord->summary." Vital signs: {$vitalReading->heart_rate} bpm, {$vitalReading->temperature} °C, {$vitalReading->systolic}/{$vitalReading->diastolic} mmHg.",
+                'result' => $medicalRecord->result_summary,
+                'is_vital_reading' => false,
+                'heart_rate' => $vitalReading?->heart_rate,
+                'temperature' => $vitalReading?->temperature,
+                'blood_pressure' => $vitalReading ? "{$vitalReading->systolic}/{$vitalReading->diastolic}" : null,
+            ];
+        })->concat($activityReadings->reject(fn ($vitalReading): bool => $linkedVitalReadingIds->contains($vitalReading->id))->map(fn ($vitalReading) => [
             'key' => 'vital-'.$vitalReading->id,
             'date' => $vitalReading->recorded_on,
             'type' => 'Vital signs check',

@@ -36,7 +36,9 @@ class PortalNotification extends Model
             return route('appointments.index');
         }
 
-        return $this->type === 'vital_reading_available' ? route('medical-records.index') : route('notifications.index');
+        return in_array($this->type, ['vital_reading_available', 'medical_record_available'], true)
+            ? route('medical-records.index')
+            : route('notifications.index');
     }
 
     protected function casts(): array

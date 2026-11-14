@@ -28,7 +28,7 @@
                         <span class="mt-1 block break-words text-sm leading-6 text-slate-600">{{ $portalNotification->body }}</span>
                         <span class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                             <time datetime="{{ $portalNotification->created_at->toIso8601String() }}" class="text-slate-500">{{ $portalNotification->created_at->format('M j, Y g:i A') }}</time>
-                            <span class="font-semibold text-teal-700">{{ str_starts_with($portalNotification->type, 'appointment_') ? 'View appointment' : ($portalNotification->type === 'vital_reading_available' ? 'View medical record' : 'Read notification') }} <span aria-hidden="true">&rarr;</span></span>
+                            <span class="font-semibold text-teal-700">{{ str_starts_with($portalNotification->type, 'appointment_') ? 'View appointment' : (in_array($portalNotification->type, ['vital_reading_available', 'medical_record_available'], true) ? 'View medical record' : 'Read notification') }} <span aria-hidden="true">&rarr;</span></span>
                         </span>
                     </span>
                 </button>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\AppointmentAvailability;
 use App\AppointmentProposals;
 use App\Http\Requests\AssignStaffAppointmentRequest;
+use App\Http\Requests\StoreStaffMedicalRecordRequest;
 use App\Http\Requests\StoreStaffVitalReadingRequest;
 use App\Http\Requests\UpdateStaffAppointmentStatusRequest;
 use App\Models\Appointment;
@@ -182,6 +183,33 @@ class StaffDashboardController extends Controller
             ]);
 
             return to_route('staff.dashboard')->with('status', 'Visit measurements saved and the patient was notified.');
+        }, 5);
+    }
+
+    public function storeMedicalRecord(StoreStaffMedicalRecordRequest $request, Appointment $appointment): RedirectResponse
+    {
+        return DB::transaction(function () use ($request, $appointment): RedirectResponse {
+            $appointment = Appointment::query()->lockForUpdate()->findOrFail($appointment->id);
+            abort_if($appointment->status === 'Awaiting patient approval', 422, 'The patient must approve this proposal first.');
+            $appointment->update(['status' => 'Completed']);
+            $medicalRecord = $appointment->patient->medicalRecords()->create([
+                ...$request->safe()->only(['recorded_on', 'title', 'summary', 'result_summary']),
+                'record_type' => 'Clinical assessment',
+                'provider_name' => $appointment->doctor_name,
+            ]);
+            if ($request->boolean('record_vitals')) {
+                $appointment->patient->vitalReadings()->updateOrCreate(
+                    ['appointment_id' => $appointment->id],
+                    $request->safe()->only(['recorded_on', 'heart_rate', 'temperature', 'systolic', 'diastolic']),
+                );
+            }
+            $appointment->patient->portalNotifications()->create(['target' => ['kind' => 'record', 'id' => $medicalRecord->id],
+                'type' => 'medical_record_available',
+                'title' => 'New clinical record available',
+                'body' => "A clinical record from your {$appointment->department} visit is available in Medical Records.",
+            ]);
+
+            return to_route('staff.dashboard')->with('status', 'Clinical record saved and the patient was notified.');
         }, 5);
     }
 }

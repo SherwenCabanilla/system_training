@@ -37,7 +37,7 @@ class StaffAppointmentTest extends TestCase
             ->get(route('staff.dashboard'))
             ->assertOk()
             ->assertSeeInOrder(['Overdue visit outcomes', "Today's schedule"])
-            ->assertSee('Complete &amp; add measurements', false)
+            ->assertSee('Complete visit')
             ->assertSee('Mark missed')
             ->assertSee('Cancel visit');
     }
@@ -120,6 +120,73 @@ class StaffAppointmentTest extends TestCase
         ]);
     }
 
+    public function test_staff_can_add_a_clinical_record_with_a_diagnosis_and_follow_up_plan(): void
+    {
+        $staff = User::factory()->create(['is_staff' => true]);
+        $patient = Patient::query()->create(['user_id' => User::factory()->create()->id]);
+        $appointment = $patient->appointments()->create([
+            'scheduled_at' => now()->subDay(),
+            'doctor_name' => 'Dr. Ana Reyes',
+            'department' => 'Internal Medicine',
+            'status' => 'Scheduled',
+        ]);
+
+        $this->actingAs($staff)
+            ->post(route('staff.appointments.medical-records.store', $appointment), [
+                'recorded_on' => '2026-11-14',
+                'title' => 'Urinary tract infection (UTI)',
+                'summary' => 'Symptoms and urinalysis findings are consistent with an uncomplicated UTI.',
+                'result_summary' => 'Start prescribed antibiotics and return if symptoms worsen.',
+                'record_vitals' => '1',
+                'heart_rate' => 72,
+                'temperature' => 36.8,
+                'systolic' => 118,
+                'diastolic' => 76,
+            ])
+            ->assertRedirect(route('staff.dashboard'))
+            ->assertSessionHas('status', 'Clinical record saved and the patient was notified.');
+
+        $this->assertDatabaseHas('medical_records', [
+            'patient_id' => $patient->id,
+            'provider_name' => 'Dr. Ana Reyes',
+            'record_type' => 'Clinical assessment',
+            'title' => 'Urinary tract infection (UTI)',
+            'result_summary' => 'Start prescribed antibiotics and return if symptoms worsen.',
+        ]);
+        $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'status' => 'Completed']);
+        $this->assertDatabaseHas('vital_readings', [
+            'appointment_id' => $appointment->id,
+            'heart_rate' => 72,
+            'systolic' => 118,
+            'diastolic' => 76,
+        ]);
+        $this->assertDatabaseHas('portal_notifications', [
+            'patient_id' => $patient->id,
+            'type' => 'medical_record_available',
+            'title' => 'New clinical record available',
+        ]);
+    }
+
+    public function test_clinical_record_requires_a_diagnosis_and_assessment(): void
+    {
+        $staff = User::factory()->create(['is_staff' => true]);
+        $appointment = Appointment::factory()->for(Patient::factory())->create([
+            'scheduled_at' => now()->subDay(),
+            'doctor_name' => 'Dr. Ana Reyes',
+            'department' => 'Internal Medicine',
+            'status' => 'Completed',
+        ]);
+
+        $this->actingAs($staff)
+            ->from(route('staff.history'))
+            ->post(route('staff.appointments.medical-records.store', $appointment), [])
+            ->assertRedirect(route('staff.history'))
+            ->assertSessionHasErrors(['recorded_on', 'title', 'summary']);
+
+        $this->assertDatabaseCount('medical_records', 0);
+        $this->assertDatabaseCount('portal_notifications', 0);
+    }
+
     public function test_staff_must_select_a_supported_appointment_status(): void
     {
         $staff = User::factory()->create(['is_staff' => true]);
@@ -175,7 +242,7 @@ class StaffAppointmentTest extends TestCase
         $this->get(route('staff.history'))
             ->assertOk()
             ->assertViewHas('appointments', fn ($appointments) => $appointments->modelKeys() === [$completed->id])
-            ->assertSee('Add measurements');
+            ->assertSee('Add visit record');
     }
 
     public function test_new_staff_pages_require_a_staff_account(): void

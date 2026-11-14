@@ -27,11 +27,8 @@
         </dl>
         <div class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
             @php($vitalReading = $appointment->vitalReadings->first())
-            @if ($appointment->status === 'Scheduled' && $canRecordMeasurements)
-                <button type="button" @click="$dispatch('open-vitals', { action: @js(route('staff.appointments.vital-reading', $appointment)), patientName: @js($appointment->patient->user->name), department: @js($appointment->department), recordedOn: @js($vitalReading?->recorded_on?->format('Y-m-d') ?? now()->toDateString()), heartRate: @js($vitalReading?->heart_rate), temperature: @js($vitalReading?->temperature), systolic: @js($vitalReading?->systolic), diastolic: @js($vitalReading?->diastolic) })" class="rounded-xl bg-teal-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-800">Complete &amp; add measurements</button>
-            @endif
-            @if ($appointment->status === 'Completed')
-                <button type="button" @click="$dispatch('open-vitals', { action: @js(route('staff.appointments.vital-reading', $appointment)), patientName: @js($appointment->patient->user->name), department: @js($appointment->department), recordedOn: @js($vitalReading?->recorded_on?->format('Y-m-d') ?? now()->toDateString()), heartRate: @js($vitalReading?->heart_rate), temperature: @js($vitalReading?->temperature), systolic: @js($vitalReading?->systolic), diastolic: @js($vitalReading?->diastolic) })" class="rounded-xl border border-teal-300 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800 transition hover:bg-teal-100">{{ $vitalReading ? 'Edit measurements' : 'Add measurements' }}</button>
+            @if (in_array($appointment->status, ['Scheduled', 'Completed'], true))
+                <button type="button" @click="$dispatch('open-medical-record', { action: @js(route('staff.appointments.medical-records.store', $appointment)), patientName: @js($appointment->patient->user->name), department: @js($appointment->department), recordedOn: @js(now()->toDateString()), heartRate: @js($vitalReading?->heart_rate), temperature: @js($vitalReading?->temperature), systolic: @js($vitalReading?->systolic), diastolic: @js($vitalReading?->diastolic) })" class="rounded-xl bg-teal-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-800">{{ $appointment->status === 'Scheduled' ? 'Complete visit' : 'Add visit record' }}</button>
             @endif
             @if ($appointment->status === 'Scheduled')
                 <div class="grid grid-cols-2 gap-2">

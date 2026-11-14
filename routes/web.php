@@ -39,6 +39,7 @@ Route::middleware(['auth', 'staff'])->group(function () {
     Route::get('staff/appointments/{appointment}/availability', [StaffDashboardController::class, 'assignmentAvailability'])->name('staff.appointments.availability');
     Route::patch('staff/appointments/{appointment}/assignment', [StaffDashboardController::class, 'assignAppointment'])->name('staff.appointments.assignment');
     Route::put('staff/appointments/{appointment}/vital-reading', [StaffDashboardController::class, 'storeVitalReading'])->name('staff.appointments.vital-reading');
+    Route::post('staff/appointments/{appointment}/medical-records', [StaffDashboardController::class, 'storeMedicalRecord'])->name('staff.appointments.medical-records.store');
 });
 
 require __DIR__.'/auth.php';

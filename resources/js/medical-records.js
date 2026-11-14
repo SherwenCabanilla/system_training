@@ -185,7 +185,12 @@ if (page) {
     if (targetRecord) {
         const button = [...document.querySelectorAll('[data-record-key]')].find((item) => item.dataset.recordKey === targetRecord);
         if (button) {
-            openRecord(button);
+            button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            button.classList.add('relative', 'ring-2', 'ring-inset', 'ring-teal-500', 'bg-teal-50');
+            const indicator = document.createElement('span');
+            indicator.className = 'pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 rounded-full bg-teal-700 px-3 py-1.5 text-xs font-bold text-white shadow-lg motion-safe:animate-bounce';
+            indicator.textContent = '↓ Your notification';
+            button.append(indicator);
         } else {
             const notice = document.createElement('p');
             notice.className = 'rounded-xl bg-slate-100 p-4 text-sm text-slate-600';
